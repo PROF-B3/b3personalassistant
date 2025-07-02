@@ -1,0 +1,43 @@
+# Core AI and LLM dependencies
+ollama>=0.1.0,<0.2.0
+
+# Multi-agent framework
+autogen>=0.2.0,<0.3.0
+
+# Database and data management
+sqlalchemy>=2.0.0,<3.0.0
+pydantic>=2.0.0,<3.0.0
+
+# CLI and terminal formatting
+rich>=13.0.0,<14.0.0
+click>=8.1.0,<9.0.0
+
+# System monitoring and utilities
+psutil>=5.9.0,<6.0.0
+
+# HTTP and networking
+aiohttp>=3.8.0,<4.0.0
+requests>=2.31.0,<3.0.0
+
+# Configuration and settings
+python-dotenv>=1.0.0,<2.0.0
+pyyaml>=6.0,<7.0
+
+# Logging and debugging
+loguru>=0.7.0,<0.8.0
+
+# Utilities and helpers
+tqdm>=4.65.0,<5.0.0
+tenacity>=8.2.0,<9.0.0
+typing-extensions>=4.7.0,<5.0.0
+
+# Video processing dependencies for collaborative workflow
+moviepy>=1.0.3,<2.0.0
+scenedetect>=0.6.0,<1.0.0
+pillow>=10.0.0,<11.0.0
+numpy>=1.24.0,<2.0.0
+
+# Note: tkinter is built-in with Python
+# Note: sqlite3 is built-in with Python
+# Note: pathlib is built-in with Python (3.4+)
+# Note: dataclasses is built-in with Python (3.7+) 

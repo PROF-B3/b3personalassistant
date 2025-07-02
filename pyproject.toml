@@ -1,0 +1,163 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "b3personalassistant"
+version = "1.0.0"
+description = "A revolutionary multi-agent AI personal assistant system with Zettelkasten knowledge management"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "B3PersonalAssistant Team", email = "team@b3personalassistant.com"}
+]
+maintainers = [
+    {name = "Prof. B3", email = "prof.b3@temporal-research.org"}
+]
+keywords = ["ai", "personal-assistant", "multi-agent", "zettelkasten", "ollama"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Database",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "ollama>=0.1.0",
+    "autogen>=0.2.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0",
+    "psutil>=5.9.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "python-dateutil>=2.8.0",
+    "colorama>=0.4.6",
+    "tqdm>=4.65.0",
+    "aiohttp>=3.8.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.0",
+    "tenacity>=8.2.0",
+    "typing-extensions>=4.7.0",
+    "moviepy>=1.0.3",
+    "scenedetect>=0.6.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.3.0",
+]
+gui = [
+    "tkinter",
+    "pillow>=10.0.0",
+]
+full = [
+    "autogen>=0.2.0",
+    "openai>=1.0.0",
+    "anthropic>=0.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/B3PersonalAssistant"
+Documentation = "https://github.com/yourusername/B3PersonalAssistant/wiki"
+Repository = "https://github.com/yourusername/B3PersonalAssistant.git"
+"Bug Tracker" = "https://github.com/yourusername/B3PersonalAssistant/issues"
+"Temporal Research Institute" = "https://temporal-research.org"
+
+[project.scripts]
+b3assistant = "B3PersonalAssistant.run_assistant:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["B3PersonalAssistant*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["B3PersonalAssistant"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tutorial", "tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["B3PersonalAssistant"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+] 
