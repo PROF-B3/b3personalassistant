@@ -9,7 +9,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from .core.config import Config
+from core.config import ConfigManager
 from .interfaces.gui_launcher import launch_gui
 from .interfaces.cli_launcher import CLILauncher
 
@@ -77,9 +77,11 @@ Examples:
             if not config_path.exists():
                 logger.error(f"Configuration file not found: {config_path}")
                 sys.exit(1)
-            config = Config.load_config(config_path)
+            config_manager = ConfigManager(str(config_path))
+            config = config_manager.config
         else:
-            config = Config.load_config()
+            config_manager = ConfigManager()
+            config = config_manager.config
         
         logger.info("Configuration loaded successfully")
         

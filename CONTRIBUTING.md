@@ -1,204 +1,256 @@
-# Contributing to B3PersonalAssistant 🤝
+# 🤝 Contributing Guide
 
-> *"Every contribution to this project is a step toward the future of AI assistance."* — Prof. B3
+> **How to contribute to B3PersonalAssistant**
 
-Thank you for your interest in contributing to B3PersonalAssistant! This document provides guidelines for developers who want to contribute to the project.
+## 📋 Table of Contents
 
-## 🌟 Getting Started
+1. [Getting Started](#getting-started)
+2. [Development Setup](#development-setup)
+3. [Code Standards](#code-standards)
+4. [Testing](#testing)
+5. [Pull Request Process](#pull-request-process)
+6. [Documentation](#documentation)
+7. [Community Guidelines](#community-guidelines)
+
+## 🚀 Getting Started
+
+### Before You Start
+
+1. **Check existing issues** - Your idea might already be discussed
+2. **Read the documentation** - Understand the project structure
+3. **Join discussions** - Ask questions in GitHub Discussions
+4. **Start small** - Begin with documentation or small fixes
+
+### What We're Looking For
+
+- **Bug fixes** - Help improve stability
+- **Feature enhancements** - Add new capabilities
+- **Documentation** - Improve guides and examples
+- **Testing** - Add tests and improve coverage
+- **Performance** - Optimize existing code
+- **UI/UX** - Improve interfaces and user experience
+
+## 🔧 Development Setup
 
 ### Prerequisites
-- Python 3.8+
+
+```bash
+# Required tools
+- Python 3.9+
 - Git
-- Ollama (for testing AI features)
-- Basic understanding of multi-agent systems
-
-### Development Setup
-
-1. **Fork and Clone**
-   ```bash
-   git clone https://github.com/yourusername/B3PersonalAssistant.git
-   cd B3PersonalAssistant
-   ```
-
-2. **Create Virtual Environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
-   ```
-
-4. **Install Pre-commit Hooks**
-   ```bash
-   pre-commit install
-   ```
-
-## 🏗️ Project Structure
-
-```
-B3PersonalAssistant/
-├── core/                 # Core system components
-│   ├── agents.py        # AI agent implementations
-│   ├── orchestrator.py  # Agent coordination
-│   └── config.py        # Configuration management
-├── modules/             # Feature modules
-│   ├── conversation.py  # Chat and memory
-│   ├── knowledge.py     # Zettelkasten system
-│   ├── tasks.py         # Task management
-│   └── resources.py     # System monitoring
-├── interfaces/          # User interfaces
-│   ├── gui_launcher.py  # Retro terminal GUI
-│   └── cli_launcher.py  # Rich CLI
-├── tutorial/            # Examples and tests
-├── databases/           # Data storage
-└── X/                   # Zettelkasten notes
+- Ollama (for AI models)
+- FFmpeg (for video processing)
 ```
 
-## 📝 Coding Standards
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/PROF-B3/b3personalassistant.git
+cd b3personalassistant
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks
+pre-commit install
+
+# Initialize database
+python scripts/init_database.py
+
+# Run tests to verify setup
+pytest tests/ -v
+```
+
+### Development Workflow
+
+```bash
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Make changes and test
+python run_assistant.py
+pytest tests/ -v
+
+# Run linting and formatting
+black .
+isort .
+flake8 .
+
+# Commit changes
+git add .
+git commit -m "feat: add new feature"
+
+# Push and create PR
+git push origin feature/your-feature-name
+```
+
+## 📝 Code Standards
 
 ### Python Style Guide
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guidelines
-- Use type hints for all function parameters and return values
-- Maximum line length: 88 characters (Black formatter)
-- Use descriptive variable and function names
 
-### Code Formatting
-```bash
-# Format code with Black
-black B3PersonalAssistant/
+We follow **PEP 8** with some modifications:
 
-# Sort imports with isort
-isort B3PersonalAssistant/
+```python
+# Good: Clear, readable code
+def process_user_request(request: str) -> dict:
+    """Process user request and return response."""
+    try:
+        result = orchestrator.process_request(request)
+        return {"success": True, "response": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-# Check code style with flake8
-flake8 B3PersonalAssistant/
+# Bad: Unclear, hard to read
+def proc_req(r):
+    try:
+        return {"s":True,"r":orchestrator.process_request(r)}
+    except:
+        return {"s":False,"e":"error"}
+```
+
+### Naming Conventions
+
+```python
+# Classes: PascalCase
+class VideoProcessor:
+    pass
+
+# Functions and variables: snake_case
+def process_video():
+    video_path = "input.mp4"
+
+# Constants: UPPER_SNAKE_CASE
+MAX_CONCURRENT_TASKS = 5
+DEFAULT_MODEL = "llama2"
+
+# Private methods: _leading_underscore
+def _internal_helper():
+    pass
 ```
 
 ### Documentation Standards
-- Use Google-style docstrings for all functions and classes
-- Include type hints in docstrings
-- Add examples for complex functions
-- Update README.md for user-facing changes
 
-### Example Docstring
 ```python
-def process_user_input(input_data: str, context: Optional[Dict] = None) -> str:
-    """Process user input and return appropriate response.
+def create_futuristic_remix(video_path: str, theme: str = "neon_cyberpunk") -> list:
+    """
+    Create AI-enhanced video segments with futuristic effects.
     
     Args:
-        input_data: The user's input string
-        context: Optional context dictionary for additional information
-        
-    Returns:
-        Processed response string
-        
-    Raises:
-        ValueError: If input_data is empty
-        
-    Example:
-        >>> process_user_input("Hello", {"user_id": 123})
-        "Hello! How can I help you today?"
-    """
-    if not input_data.strip():
-        raise ValueError("Input data cannot be empty")
+        video_path: Path to input video file
+        theme: Visual theme for processing (default: "neon_cyberpunk")
     
-    # Processing logic here
-    return f"Processed: {input_data}"
+    Returns:
+        List of processed video segment paths
+    
+    Raises:
+        FileNotFoundError: If video file doesn't exist
+        ValueError: If theme is not supported
+    
+    Example:
+        >>> result = create_futuristic_remix("input.mp4", "green_solarpunk")
+        >>> print(f"Created {len(result)} segments")
+    """
+    # Implementation here
+    pass
+```
+
+### Import Organization
+
+```python
+# Standard library imports
+import os
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
+
+# Third-party imports
+import requests
+import sqlalchemy as sa
+from rich.console import Console
+
+# Local imports
+from core.orchestrator import Orchestrator
+from modules.video_processing import VideoProcessor
+from databases.manager import DatabaseManager
 ```
 
 ## 🧪 Testing
 
 ### Running Tests
+
 ```bash
 # Run all tests
-python -m pytest tutorial/
+pytest tests/ -v
 
 # Run specific test file
-python -m pytest tutorial/test_agents.py
+pytest tests/test_core.py -v
 
 # Run with coverage
-python -m pytest --cov=B3PersonalAssistant tutorial/
+pytest tests/ --cov=core --cov=modules --cov-report=html
 
-# Run performance tests
-python -m pytest tutorial/test_performance.py
+# Run specific test
+pytest tests/test_core.py::test_orchestrator_initialization -v
 ```
 
 ### Writing Tests
-- Create tests for all new features
-- Use descriptive test names
-- Test both success and failure cases
-- Mock external dependencies (Ollama API, file system)
 
-### Example Test
 ```python
 import pytest
-from unittest.mock import Mock, patch
-from core.agents import AlphaAgent
+from core.orchestrator import Orchestrator
 
-class TestAlphaAgent:
-    def test_agent_initialization(self):
-        """Test that AlphaAgent initializes correctly."""
-        agent = AlphaAgent()
-        assert agent.name == "Alpha"
-        assert agent.orchestrator is None
+class TestOrchestrator:
+    """Test cases for Orchestrator class."""
     
-    @patch('ollama.Client')
-    def test_agent_response(self, mock_ollama):
-        """Test agent response generation."""
-        mock_ollama.return_value.chat.return_value = {
-            'message': {'content': 'Test response'}
-        }
-        
-        agent = AlphaAgent()
-        response = agent.act("Hello")
-        
-        assert "Test response" in response
-        mock_ollama.return_value.chat.assert_called_once()
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.orchestrator = Orchestrator()
+    
+    def test_initialization(self):
+        """Test orchestrator initialization."""
+        assert self.orchestrator is not None
+        assert hasattr(self.orchestrator, 'agents')
+    
+    def test_process_request(self):
+        """Test request processing."""
+        result = self.orchestrator.process_request("Hello")
+        assert isinstance(result, str)
+        assert len(result) > 0
+    
+    @pytest.mark.parametrize("request_text", [
+        "Research AI",
+        "Create task",
+        "Save note"
+    ])
+    def test_various_requests(self, request_text):
+        """Test different types of requests."""
+        result = self.orchestrator.process_request(request_text)
+        assert result is not None
 ```
 
-## 🔧 Development Workflow
+### Test Guidelines
 
-### 1. Create Feature Branch
-```bash
-git checkout -b feature/your-feature-name
-```
+1. **Test coverage** - Aim for 90%+ coverage
+2. **Test isolation** - Each test should be independent
+3. **Meaningful names** - Test names should describe what they test
+4. **Assertions** - Use specific assertions, not just `assert True`
+5. **Mocking** - Mock external dependencies (Ollama, file system)
 
-### 2. Make Changes
-- Write code following coding standards
-- Add tests for new functionality
-- Update documentation
-- Test locally
-
-### 3. Commit Changes
-```bash
-git add .
-git commit -m "feat: add new agent communication feature
-
-- Add send_message method to AgentBase
-- Implement agent-to-agent communication
-- Add tests for communication functionality
-- Update documentation"
-```
-
-### 4. Push and Create Pull Request
-```bash
-git push origin feature/your-feature-name
-```
-
-## 📋 Pull Request Guidelines
+## 🔄 Pull Request Process
 
 ### Before Submitting
-- [ ] Code follows style guidelines
-- [ ] All tests pass
-- [ ] Documentation is updated
-- [ ] No new warnings or errors
-- [ ] Performance impact is considered
 
-### Pull Request Template
+1. **Update documentation** - Add/update relevant docs
+2. **Add tests** - Include tests for new features
+3. **Run checks** - Ensure all tests pass and code is formatted
+4. **Self-review** - Review your own code before submitting
+
+### PR Template
+
 ```markdown
 ## Description
 Brief description of changes
@@ -206,160 +258,136 @@ Brief description of changes
 ## Type of Change
 - [ ] Bug fix
 - [ ] New feature
-- [ ] Breaking change
 - [ ] Documentation update
+- [ ] Performance improvement
+- [ ] Refactoring
 
 ## Testing
-- [ ] Unit tests added/updated
-- [ ] Integration tests pass
+- [ ] Added tests for new functionality
+- [ ] All existing tests pass
 - [ ] Manual testing completed
 
 ## Checklist
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Documentation updated
-- [ ] No new warnings
+- [ ] No breaking changes (or documented)
 
 ## Screenshots (if applicable)
 Add screenshots for UI changes
 ```
 
-## 🎯 Contribution Areas
+### Review Process
 
-### High Priority
-- **Agent Communication**: Improve inter-agent messaging
-- **Error Handling**: Enhance error recovery mechanisms
-- **Performance**: Optimize response times and resource usage
-- **Testing**: Increase test coverage
-
-### Medium Priority
-- **New Agents**: Add specialized agents for specific domains
-- **UI Improvements**: Enhance GUI and CLI interfaces
-- **Integration**: Add support for external APIs
-- **Documentation**: Improve user guides and API docs
-
-### Low Priority
-- **Plugins**: Create plugin system for extensibility
-- **Mobile**: Develop mobile interface
-- **Cloud Sync**: Add optional cloud synchronization
-
-## 🐛 Bug Reports
-
-### Before Reporting
-1. Check existing issues
-2. Test with latest version
-3. Reproduce the issue
-4. Gather system information
-
-### Bug Report Template
-```markdown
-## Bug Description
-Clear description of the issue
-
-## Steps to Reproduce
-1. Step 1
-2. Step 2
-3. Step 3
-
-## Expected Behavior
-What should happen
-
-## Actual Behavior
-What actually happens
-
-## Environment
-- OS: [e.g., Windows 10, macOS 12]
-- Python: [e.g., 3.9.7]
-- B3PersonalAssistant: [e.g., 1.0.0]
-- Ollama: [e.g., 0.1.0]
-
-## Additional Information
-Logs, screenshots, etc.
-```
-
-## 🚀 Feature Requests
-
-### Before Requesting
-1. Check if feature already exists
-2. Consider implementation complexity
-3. Think about user impact
-4. Prepare use case examples
-
-### Feature Request Template
-```markdown
-## Feature Description
-Clear description of the feature
-
-## Use Case
-How this feature would be used
-
-## Implementation Ideas
-Optional suggestions for implementation
-
-## Priority
-High/Medium/Low
-
-## Additional Context
-Any other relevant information
-```
+1. **Automated checks** - CI/CD pipeline runs tests and linting
+2. **Code review** - At least one maintainer reviews the PR
+3. **Discussion** - Address any feedback or questions
+4. **Merge** - PR is merged once approved
 
 ## 📚 Documentation
 
-### Contributing to Documentation
-- Keep documentation up-to-date with code changes
-- Use clear, concise language
-- Include examples and screenshots
-- Follow markdown best practices
+### Documentation Standards
 
-### Documentation Structure
-- **README.md**: Project overview and quick start
-- **USER_GUIDE.md**: Comprehensive user documentation
-- **API_DOCS.md**: Technical API reference
-- **CONTRIBUTING.md**: This file
-- **TROUBLESHOOTING.md**: Common issues and solutions
+1. **Keep it current** - Update docs when code changes
+2. **Be clear** - Use simple, clear language
+3. **Include examples** - Show how to use features
+4. **Cross-reference** - Link related documentation
 
-## 🏆 Recognition
+### Documentation Types
 
-### Contributors
-- All contributors will be listed in the README
-- Significant contributions will be highlighted
-- Contributors will be mentioned in release notes
+- **README.md** - Project overview and quick start
+- **User Guide** - Complete user manual
+- **API Documentation** - Developer reference
+- **Code comments** - Inline documentation
+- **Tutorials** - Step-by-step guides
 
-### Contribution Levels
-- **Bronze**: 1-5 contributions
-- **Silver**: 6-15 contributions
-- **Gold**: 16+ contributions
-- **Platinum**: Core maintainer level
+### Updating Documentation
 
-## 🤝 Community Guidelines
+```bash
+# Update user guide
+edit_file USER_GUIDE.md
+
+# Update API docs
+edit_file API_DOCS.md
+
+# Update README
+edit_file README.md
+
+# Check links
+python -c "import markdown; print('Links valid')"
+```
+
+## 🌟 Community Guidelines
 
 ### Code of Conduct
-- Be respectful and inclusive
-- Help others learn and grow
-- Provide constructive feedback
-- Follow project guidelines
+
+1. **Be respectful** - Treat everyone with respect
+2. **Be inclusive** - Welcome contributors of all backgrounds
+3. **Be constructive** - Provide helpful, constructive feedback
+4. **Be patient** - Remember that everyone is learning
 
 ### Communication
-- Use GitHub Issues for bug reports
-- Use GitHub Discussions for questions
-- Be patient with responses
-- Help maintain a positive community
 
-## 📞 Getting Help
+- **GitHub Issues** - For bug reports and feature requests
+- **GitHub Discussions** - For questions and general discussion
+- **Pull Requests** - For code contributions
+- **Email** - For sensitive or private matters
 
-### Resources
-- [GitHub Issues](https://github.com/yourusername/B3PersonalAssistant/issues)
-- [GitHub Discussions](https://github.com/yourusername/B3PersonalAssistant/discussions)
-- [Documentation](https://github.com/yourusername/B3PersonalAssistant/wiki)
+### Recognition
 
-### Questions
-- Check existing issues and discussions
-- Search documentation
-- Ask in GitHub Discussions
-- Create a new issue if needed
+Contributors are recognized in:
+- **README.md** - Contributor list
+- **Release notes** - Feature acknowledgments
+- **Documentation** - Author credits
+- **GitHub** - Commit history and PRs
+
+## 🚀 Getting Help
+
+### Development Resources
+
+- **[User Guide](USER_GUIDE.md)** - Complete system manual
+- **[API Documentation](API_DOCS.md)** - Developer reference
+- **[Quick Start](QUICK_START.md)** - Get up and running
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues
+
+### Community Support
+
+- **[GitHub Issues](https://github.com/PROF-B3/b3personalassistant/issues)** - Bug reports
+- **[Discussions](https://github.com/PROF-B3/b3personalassistant/discussions)** - Questions and ideas
+- **[Wiki](https://github.com/PROF-B3/b3personalassistant/wiki)** - Community knowledge
+
+### Development Tools
+
+```bash
+# Code formatting
+black .
+isort .
+
+# Linting
+flake8 .
+mypy core/ modules/
+
+# Testing
+pytest tests/ -v --cov
+
+# Pre-commit hooks
+pre-commit run --all-files
+```
+
+## 📋 Contribution Checklist
+
+Before submitting your contribution:
+
+- [ ] Code follows style guidelines
+- [ ] Tests added and passing
+- [ ] Documentation updated
+- [ ] No breaking changes
+- [ ] Self-review completed
+- [ ] PR description filled out
+- [ ] All CI checks passing
 
 ---
 
-**Thank you for contributing to the future of AI assistance!** 
+**Thank you for contributing to B3PersonalAssistant! Your contributions help make this project better for everyone.**
 
-*"Every line of code you write today shapes the intelligence of tomorrow."* — Prof. B3 
+For questions or support, reach out in [GitHub Discussions](https://github.com/PROF-B3/b3personalassistant/discussions). 

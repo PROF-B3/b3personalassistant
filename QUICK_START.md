@@ -1,410 +1,260 @@
-# B3PersonalAssistant Quick Start Guide ⚡
+# 🚀 Quick Start Guide
 
-> *"Welcome to the future of personal assistance. This guide will get you up and running in minutes."* — Prof. B3
+> **Get B3PersonalAssistant up and running in under 5 minutes**
 
-## 🚀 Installation (5 minutes)
+## 📋 Prerequisites
 
-### Prerequisites
-- Python 3.8 or higher
-- [Ollama](https://ollama.ai/) installed and running
+- **Python 3.9+**
+- **Git**
+- **Ollama** (for local AI models)
+- **FFmpeg** (for video processing)
 
-### Step 1: Install Ollama
-```bash
-# macOS/Linux
-curl -fsSL https://ollama.ai/install.sh | sh
+## ⚡ Installation
 
-# Windows
-# Download from https://ollama.ai/download
+### Option 1: Standard Installation
 
-# Start Ollama
-ollama serve
-```
-
-### Step 2: Install B3PersonalAssistant
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/B3PersonalAssistant.git
-cd B3PersonalAssistant
+git clone https://github.com/PROF-B3/b3personalassistant.git
+cd b3personalassistant
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements-minimal.txt
 
-# Download a model (optional, will download automatically)
-ollama pull llama2
-```
+# Initialize database
+python scripts/init_database.py
 
-### Step 3: First Launch
-```bash
+# Run the assistant
 python run_assistant.py
 ```
 
-## 👋 Your First Experience
+### Option 2: Docker (Recommended)
 
-### 1. Prof. B3's Welcome Message
-You'll see a message from 2073 introducing the system:
-```
-[Temporal Transfer Protocol Initiated]
-
-Greetings, user. I am Prof. B3, transmitting this message from the year 2073...
-```
-
-### 2. Profile Setup
-Answer a few questions to personalize your experience:
-- Your name
-- Work style (morning person, night owl, etc.)
-- Areas of interest
-- Preferred communication style
-- Task management preferences
-
-### 3. Choose Your Interface
-- **GUI**: Retro terminal with three panels
-- **CLI**: Command-line interface with rich formatting
-
-## 🎯 Your First Tasks
-
-### Basic Commands
 ```bash
-# Get help
-/help
-
-# Check system status
-/status
-
-# See examples
-/examples
-
-# Clear chat
-/clear
+# Clone and start with Docker Compose
+git clone https://github.com/PROF-B3/b3personalassistant.git
+cd b3personalassistant
+docker-compose up -d
 ```
 
-### Chat with Alpha (Chief Assistant)
-```
-You: Hello Alpha, I'm new here
-Alpha: Welcome! I'm Alpha, your chief assistant. I coordinate with other 
-      agents to help you with research, knowledge management, and task 
-      planning. What would you like to work on today?
-```
+### Option 3: Development Setup
 
-### Try a Research Task
-```
-You: Research quantum computing
-Alpha: I'll coordinate Beta for research, Gamma for knowledge organization, 
-      and Delta for task management. Let's create a comprehensive plan.
-
-Beta: Based on my research, quantum computing uses quantum mechanical 
-      phenomena to process information. Key concepts include qubits, 
-      superposition, and entanglement...
-
-Gamma: I've created Zettelkasten notes on quantum computing and linked 
-       them to your existing knowledge base...
-
-Delta: I've created follow-up tasks for deeper exploration...
-```
-
-## 📚 Knowledge Management
-
-### Create Your First Note
-```
-You: Take notes on machine learning
-Gamma: I've created a note on machine learning and linked it to related 
-       concepts. I found connections to your existing knowledge about 
-       programming and statistics.
-```
-
-### Search Your Knowledge
 ```bash
-/search machine learning
-/tags ai
-/link neural networks
+# Clone and install dev dependencies
+git clone https://github.com/PROF-B3/b3personalassistant.git
+cd b3personalassistant
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest tests/ -v
+
+# Start development mode
+python run_assistant.py
 ```
 
-### View Connections
-```
-You: Show me connections to blockchain
-Gamma: Blockchain connects to:
-       - Cryptography (5 links)
-       - Distributed Systems (3 links)
-       - Digital Currency (2 links)
+## 🎯 First Steps
+
+### 1. Basic Interaction
+
+```python
+# Start the assistant
+python run_assistant.py
+
+# Or use the CLI
+python -m interfaces.cli_launcher
 ```
 
-## ✅ Task Management
+### 2. Try These Commands
 
-### Create Your First Task
 ```
-You: I need to finish my project by Friday
-Delta: I've created a task: 'Complete project'
-       Due: Friday
-       Priority: High
-       Estimated time: 8 hours
-       
-       Would you like me to break this down into subtasks?
-```
+Hello, I'm new to B3PersonalAssistant
+→ Alpha will welcome you and explain the system
 
-### Manage Tasks
-```bash
-/tasks list              # List all tasks
-/tasks add "New task"    # Add task
-/tasks complete 1        # Mark task complete
-/tasks priority 1 high   # Set priority
+Research the latest AI trends
+→ Beta will gather and analyze information
+
+Create a task to learn Python
+→ Delta will set up a structured learning plan
+
+Save this information about machine learning
+→ Gamma will organize it in your knowledge base
 ```
 
-### Project Organization
-```bash
-/project create "Website Redesign"
-/task add "Design homepage" --project "Website Redesign"
-/project tasks "Website Redesign"
+### 3. Video Processing (Optional)
+
+```python
+# Process a video with AI enhancements
+python demo_video_workflow.py
+
+# Or use the video workflow directly
+from modules.video_processing import process_video
+process_video("your_video.mp4", theme="neon_cyberpunk")
 ```
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Environment Setup
+
 ```bash
-# Enable debug mode
-export B3_DEBUG_MODE=true
+# Copy the example configuration
+cp config.env.example .env
 
-# Set default model
-export B3_DEFAULT_MODEL=llama2
-
-# Choose interface
-export B3_INTERFACE=cli  # or gui
+# Edit key settings
+nano .env
 ```
 
-### User Profiles
+**Essential Settings:**
 ```bash
-# Create different profiles
-/profile create developer
-/profile create researcher
-/profile create student
+# AI Model Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama2
 
-# Switch profiles
-/profile switch developer
+# System Configuration
+DEBUG_MODE=false
+LOG_LEVEL=INFO
+
+# Video Processing
+VIDEO_SEGMENT_DURATION=60
+VIDEO_FPS=30
 ```
 
-## 🎮 Interface Tips
+### Ollama Setup
 
-### GUI Interface
-- **Left Panel**: Agent collaboration and communication
-- **Center Panel**: Main user interaction
-- **Right Panel**: System status and controls
-
-**Keyboard Shortcuts:**
-- **Tab**: Cycle between input boxes
-- **Enter**: Send message
-- **Ctrl+C**: Copy selected text
-- **Ctrl+V**: Paste text
-
-**Commands:**
-- `/export`: Export panel content
-- `/clear`: Clear panel
-- `/hint`: Show help
-
-### CLI Interface
-**Main Menu Options:**
-1. Chat with Alpha
-2. Research mode (Beta)
-3. Knowledge management (Gamma)
-4. Task management (Delta)
-5. System status
-6. Settings
-7. Exit
-
-**Commands:**
-- `/help`: Show help
-- `/status`: System status
-- `/examples`: Example workflows
-- `/backup`: Create backup
-- `/restore`: Restore from backup
-
-## 🔄 Example Workflows
-
-### Research Workflow
-```
-1. User: "Research quantum computing applications"
-2. Alpha: Coordinates the research process
-3. Beta: Gathers and analyzes information
-4. Gamma: Organizes findings in Zettelkasten
-5. Delta: Creates follow-up tasks
-6. Alpha: Presents comprehensive summary
-```
-
-### Project Planning Workflow
-```
-1. User: "Plan my website redesign project"
-2. Delta: Creates project structure and tasks
-3. Beta: Researches best practices and tools
-4. Gamma: Documents requirements and specifications
-5. Alpha: Coordinates timeline and resources
-6. Delta: Sets up milestones and deadlines
-```
-
-### Learning Workflow
-```
-1. User: "I want to learn machine learning"
-2. Gamma: Creates learning path in Zettelkasten
-3. Beta: Researches resources and courses
-4. Delta: Creates study schedule and tasks
-5. Alpha: Monitors progress and adjusts plan
-6. Gamma: Links new knowledge to existing concepts
-```
-
-## 🆘 Getting Help
-
-### Built-in Help
 ```bash
-/help              # General help
-/help agents       # Agent-specific help
-/help commands     # Command reference
-/help examples     # Usage examples
+# Install Ollama (if not already installed)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama2
+
+# Start Ollama service
+ollama serve
 ```
+
+## 🧪 Testing Your Installation
+
+### Run the Test Suite
+
+```bash
+# All tests
+pytest tests/ -v
+
+# Specific test categories
+pytest tests/test_core.py -v
+pytest tests/ -k "agent" -v
+```
+
+### Health Check
+
+```bash
+# Check system health
+python -c "from monitoring.health_check import HealthChecker; print('System healthy!')"
+
+# Or run the health check script
+python scripts/start_production.py --health-check
+```
+
+## 🎬 Quick Video Workflow
+
+### Basic Video Processing
+
+```python
+from modules.video_processing import VideoProcessor
+
+# Initialize processor
+processor = VideoProcessor()
+
+# Process a video
+processor.process_video(
+    input_path="input.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    segment_duration=60
+)
+```
+
+### Advanced Workflow
+
+```python
+# Use the full collaborative workflow
+from demo_video_workflow import create_futuristic_remix
+
+# Create AI-enhanced video segments
+result = create_futuristic_remix("your_video.mp4")
+print(f"Created {len(result)} segments")
+```
+
+## 🗄️ Database Management
+
+### Initialize Database
+
+```bash
+# Create database with sample data
+python scripts/init_database.py
+
+# Check database status
+python -c "from databases.manager import DatabaseManager; db = DatabaseManager(); print(db.get_database_stats())"
+```
+
+### Backup and Restore
+
+```bash
+# Backup database
+cp databases/b3_assistant.db databases/backup_$(date +%Y%m%d).db
+
+# Restore from backup
+cp databases/backup_20240101.db databases/b3_assistant.db
+```
+
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-**Ollama Not Running:**
+| Issue | Solution |
+|-------|----------|
+| **Import errors** | `pip install -r requirements-minimal.txt` |
+| **Ollama connection** | `ollama serve` and check `OLLAMA_BASE_URL` |
+| **Video processing** | Install FFmpeg: `sudo apt install ffmpeg` |
+| **Database errors** | Run `python scripts/init_database.py` |
+| **Permission errors** | Check file permissions and ownership |
+
+### Logs and Debugging
+
 ```bash
-# Start Ollama
-ollama serve
+# Enable debug mode
+export DEBUG_MODE=true
 
-# Check status
-ollama list
+# Check logs
+tail -f logs/b3_assistant_*.log
+
+# Run with verbose output
+python run_assistant.py --verbose
 ```
 
-**High Resource Usage:**
-```bash
-# Check system status
-/status
+## 📚 Next Steps
 
-# Use smaller model
-ollama pull llama2:7b
-```
+### Learn More
 
-**Database Issues:**
-```bash
-# Create backup
-/backup
+- **[User Guide](USER_GUIDE.md)** - Complete system manual
+- **[API Documentation](API_DOCS.md)** - Developer reference
+- **[Video Workflow](VIDEO_WORKFLOW_GUIDE.md)** - Advanced video processing
+- **[Zettelkasten](ZETTELKASTEN.md)** - Knowledge management
 
-# Restore from backup
-/restore latest
-```
+### Advanced Features
 
-## 📊 System Monitoring
+- **Multi-Agent Collaboration**: Agents work together automatically
+- **Custom Themes**: Create your own video processing themes
+- **API Integration**: Connect with external services
+- **Production Deployment**: Scale for production use
 
-### Check System Health
-```bash
-/status              # Current status
-/status detailed     # Detailed information
-/status history      # Historical data
-```
+### Community
 
-### Monitor Resources
-- **CPU Usage**: Current and historical CPU utilization
-- **Memory Usage**: RAM usage and availability
-- **Disk Usage**: Storage space monitoring
-- **Ollama Status**: AI model availability
-- **Agent Performance**: Response times and success rates
-
-### Alerts and Throttling
-The system automatically:
-- Alerts when resources are high
-- Throttles operations when needed
-- Optimizes performance automatically
-
-## 🔄 Backup and Restore
-
-### Automatic Backups
-- **Schedule**: Every 24 hours
-- **Manual**: `/backup` command
-- **Before Updates**: Automatic backup before system updates
-
-### Manual Backup/Restore
-```bash
-/backup                    # Create backup now
-/backup --name "project1"  # Named backup
-/restore list              # List available backups
-/restore "backup_20240115" # Restore specific backup
-```
-
-## 🎯 Next Steps
-
-### 1. Explore Examples
-```bash
-/examples
-```
-Try the pre-built workflows to see what's possible.
-
-### 2. Customize Your Profile
-```bash
-/profile edit
-```
-Adjust your preferences and work style.
-
-### 3. Create Your First Project
-```
-You: Help me plan a project
-Delta: I'll help you create a comprehensive project plan. 
-      What type of project are you working on?
-```
-
-### 4. Build Your Knowledge Base
-```
-You: Take notes on [your topic of interest]
-Gamma: I'll create notes and link them to your existing knowledge.
-```
-
-### 5. Set Up Regular Workflows
-- Daily task planning with Delta
-- Weekly knowledge review with Gamma
-- Monthly project assessment with Alpha
-
-## 🔮 Advanced Features
-
-### Agent Communication
-```
-You: "Alpha, ask Beta to research AI trends"
-Alpha: "Beta, research the latest AI developments"
-Beta: "Research completed. Key findings:
-       1. Multimodal AI breakthroughs
-       2. Edge AI deployment
-       3. AI ethics frameworks"
-```
-
-### Custom Workflows
-```python
-# Define custom workflow
-workflow = {
-    "name": "Content Creation",
-    "steps": [
-        "Beta researches topic",
-        "Gamma organizes information",
-        "Alpha creates outline",
-        "Delta schedules writing tasks"
-    ]
-}
-```
-
-### Performance Optimization
-- Monitor system resources
-- Adjust model settings
-- Use appropriate model sizes
-- Enable throttling when needed
-
-## 📞 Support
-
-### Resources
-- **[User Guide](USER_GUIDE.md)**: Comprehensive documentation
-- **[API Documentation](API_DOCS.md)**: Technical reference
-- **[Troubleshooting](TROUBLESHOOTING.md)**: Common issues and solutions
-- **[Zettelkasten Guide](ZETTELKASTEN.md)**: Knowledge management methodology
-
-### Getting Help
-- **Built-in Help**: Use `/help` commands
-- **GitHub Issues**: Bug reports and feature requests
-- **Community Forum**: User discussions and tips
-- **Email Support**: Direct support for complex issues
+- **[GitHub Issues](https://github.com/PROF-B3/b3personalassistant/issues)** - Report bugs
+- **[Discussions](https://github.com/PROF-B3/b3personalassistant/discussions)** - Ask questions
+- **[Contributing](CONTRIBUTING.md)** - Help improve the project
 
 ---
 
-**"You're now ready to experience the future of personal assistance. Every interaction, every note, every task completed brings us closer to the intelligent systems of tomorrow."**
+**🎉 Congratulations! You're ready to explore the power of multi-agent AI collaboration!**
 
-— Prof. B3, Temporal Research Institute, 2073
-
-*For detailed documentation, see [User Guide](USER_GUIDE.md). For troubleshooting, see [Troubleshooting Guide](TROUBLESHOOTING.md).* 
+Need help? Check the [Troubleshooting Guide](TROUBLESHOOTING.md) or ask in [GitHub Discussions](https://github.com/PROF-B3/b3personalassistant/discussions). 

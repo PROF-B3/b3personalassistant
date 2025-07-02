@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  b3-assistant:
+    build: .
+    container_name: b3-personal-assistant
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./databases:/app/databases
+      - ./data:/app/data
+      - ./output_segments:/app/output_segments
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:///databases/b3_assistant.db
+      - DEBUG_MODE=false
+      - LOG_LEVEL=INFO
+    networks:
+      - b3-network
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: b3-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - b3-network
+
+  # Optional: Add a web interface service
+  # web-interface:
+  #   build: ./web
+  #   container_name: b3-web-interface
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_API_URL=http://b3-assistant:8000
+  #   networks:
+  #     - b3-network
+  #   depends_on:
+  #     - b3-assistant
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  b3-network:
+    driver: bridge 

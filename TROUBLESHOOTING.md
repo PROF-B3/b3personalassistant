@@ -1,599 +1,432 @@
-# B3PersonalAssistant Troubleshooting Guide 🔧
+# 🔧 Troubleshooting Guide
 
-> *"Even the most advanced systems encounter challenges. This guide will help you navigate through temporal anomalies and restore optimal functionality."* — Prof. B3
+> **Solutions to common issues with B3PersonalAssistant**
 
-## 🚨 Quick Diagnosis
+## 📋 Table of Contents
 
-### System Status Check
-```bash
-# Check if system is running properly
-python run_assistant.py --diagnostic
+1. [Installation Issues](#installation-issues)
+2. [Runtime Errors](#runtime-errors)
+3. [Performance Problems](#performance-problems)
+4. [Configuration Issues](#configuration-issues)
+5. [Database Problems](#database-problems)
+6. [Video Processing Issues](#video-processing-issues)
+7. [Agent System Issues](#agent-system-issues)
+8. [Getting Help](#getting-help)
 
-# Check Ollama status
-ollama list
+## 🚀 Installation Issues
 
-# Check system resources
-python -c "from modules.resources import ResourceMonitor; print(ResourceMonitor(Path('databases')).get_cli_status())"
-```
+### Import Errors
 
-## 🔍 Common Issues and Solutions
-
-### 1. Ollama Connection Issues
-
-#### Problem: "Ollama is not running or unreachable"
-**Symptoms:**
-- Error: "Connection refused" or "Ollama not found"
-- Agents fail to respond
-- System shows "Ollama: offline" in status
+**Problem:** `ModuleNotFoundError` or import failures
 
 **Solutions:**
-
-**A. Start Ollama Service**
 ```bash
-# Start Ollama
+# Install dependencies
+pip install -r requirements-minimal.txt
+
+# For development
+pip install -r requirements-dev.txt
+
+# Check Python version (requires 3.9+)
+python --version
+
+# Verify installation
+python test_imports.py
+```
+
+### Ollama Connection Issues
+
+**Problem:** Cannot connect to Ollama or models not found
+
+**Solutions:**
+```bash
+# Start Ollama service
 ollama serve
 
-# Check if it's running
+# Check if Ollama is running
 curl http://localhost:11434/api/tags
-```
 
-**B. Install Ollama Models**
-```bash
-# Install required models
+# Pull a model
 ollama pull llama2
-ollama pull mistral
 
-# Verify installation
+# Check available models
 ollama list
+
+# Verify connection
+python -c "import requests; print(requests.get('http://localhost:11434/api/tags').json())"
 ```
 
-**C. Check Ollama Configuration**
-```python
-# In your config.json or environment
-{
-  "ai_models": {
-    "default": {
-      "base_url": "http://localhost:11434",
-      "timeout": 30
-    }
-  }
-}
-```
+### Permission Errors
 
-**D. Alternative Ollama URL**
-```bash
-# If using custom Ollama server
-export OLLAMA_HOST=http://your-server:11434
-```
-
-#### Problem: "Model not found"
-**Symptoms:**
-- Error: "Model 'llama2' not found"
-- Agents fail to initialize
+**Problem:** File permission or access denied errors
 
 **Solutions:**
 ```bash
-# Pull the model
-ollama pull llama2
+# Check file permissions
+ls -la
 
-# Or use a different model
-# Update config.json
-{
-  "ai_models": {
-    "default": {
-      "model_name": "mistral"
-    }
-  }
-}
+# Fix permissions
+chmod +x run_assistant.py
+chmod -R 755 .
+
+# Run as administrator (Windows)
+# Right-click PowerShell and "Run as Administrator"
+
+# Check disk space
+df -h
 ```
 
-### 2. Database Issues
+## ⚡ Runtime Errors
 
-#### Problem: "Database locked or corrupted"
-**Symptoms:**
-- Error: "database is locked"
-- Data not saving
-- System crashes on startup
+### Configuration Errors
+
+**Problem:** Missing environment variables or config files
 
 **Solutions:**
-
-**A. Check Database Permissions**
 ```bash
-# Ensure write permissions
-chmod 755 databases/
-chmod 644 databases/*.db
+# Copy example configuration
+cp config.env.example .env
+
+# Edit configuration
+nano .env
+
+# Set required variables
+export OLLAMA_BASE_URL=http://localhost:11434
+export OLLAMA_MODEL=llama2
+export DEBUG_MODE=false
 ```
 
-**B. Backup and Recreate**
+### Database Errors
+
+**Problem:** Database connection or initialization failures
+
+**Solutions:**
+```bash
+# Initialize database
+python scripts/init_database.py
+
+# Check database status
+python -c "from databases.manager import DatabaseManager; db = DatabaseManager(); print(db.get_database_stats())"
+
+# Reset database (WARNING: loses data)
+rm databases/b3_assistant.db
+python scripts/init_database.py
+```
+
+### Agent Initialization Errors
+
+**Problem:** Agents fail to start or initialize
+
+**Solutions:**
+```bash
+# Check agent configuration
+cat config/agents.json
+
+# Test individual agents
+python -c "from core.agents import AlphaAgent; agent = AlphaAgent(); print(agent.get_status())"
+
+# Reset agent state
+rm -rf logs/
+python run_assistant.py
+```
+
+## 🐌 Performance Problems
+
+### High Memory Usage
+
+**Problem:** System runs out of memory or becomes slow
+
+**Solutions:**
+```bash
+# Check memory usage
+free -h
+top
+
+# Use smaller model
+ollama pull llama2:7b
+
+# Reduce concurrent tasks
+export MAX_CONCURRENT_TASKS=2
+
+# Enable memory optimization
+export OPTIMIZE_MEMORY=true
+```
+
+### Slow Response Times
+
+**Problem:** Agents take too long to respond
+
+**Solutions:**
+```bash
+# Check system resources
+python scripts/start_production.py --health-check
+
+# Use faster model
+ollama pull llama2:7b
+
+# Reduce model complexity
+export MODEL_COMPLEXITY=low
+
+# Enable caching
+export ENABLE_CACHE=true
+```
+
+### CPU Overload
+
+**Problem:** High CPU usage affecting system performance
+
+**Solutions:**
+```bash
+# Check CPU usage
+htop
+
+# Limit CPU cores
+export MAX_CPU_CORES=4
+
+# Enable throttling
+export ENABLE_THROTTLING=true
+
+# Use background processing
+python scripts/start_production.py --background
+```
+
+## ⚙️ Configuration Issues
+
+### Environment Variables Not Loading
+
+**Problem:** Configuration changes not taking effect
+
+**Solutions:**
+```bash
+# Reload environment
+source .env
+
+# Restart the application
+pkill -f run_assistant.py
+python run_assistant.py
+
+# Check loaded variables
+python -c "from core.config import ConfigManager; config = ConfigManager(); print(config.get('OLLAMA_BASE_URL'))"
+```
+
+### Agent Configuration Errors
+
+**Problem:** Agents not behaving as expected
+
+**Solutions:**
+```bash
+# Validate agent config
+python -c "import json; config = json.load(open('config/agents.json')); print('Valid config')"
+
+# Reset agent config
+cp config/agents.json config/agents.json.backup
+# Edit config/agents.json manually
+
+# Test agent capabilities
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); print(o.get_agent('alpha').get_capabilities())"
+```
+
+## 🗄️ Database Problems
+
+### Database Corruption
+
+**Problem:** Database errors or corrupted data
+
+**Solutions:**
 ```bash
 # Create backup
-cp databases/conversations.db databases/conversations.db.backup
+cp databases/b3_assistant.db databases/backup_$(date +%Y%m%d).db
 
-# Remove corrupted database
-rm databases/conversations.db
+# Check database integrity
+python -c "from databases.manager import DatabaseManager; db = DatabaseManager(); print(db.check_integrity())"
 
-# System will recreate on next run
+# Restore from backup
+cp databases/backup_20240101.db databases/b3_assistant.db
+
+# Reinitialize if needed
+python scripts/init_database.py
 ```
 
-**C. Database Recovery**
-```python
-import sqlite3
+### Database Lock Issues
 
-# Try to recover database
-conn = sqlite3.connect('databases/conversations.db')
-conn.execute("PRAGMA integrity_check")
-conn.close()
-```
-
-#### Problem: "User profile not found"
-**Symptoms:**
-- System asks for profile setup repeatedly
-- Profile settings not saved
+**Problem:** Database locked or busy errors
 
 **Solutions:**
 ```bash
-# Check if profile exists
-ls -la databases/user_profile.json
+# Check for running processes
+ps aux | grep python
 
-# Recreate profile
-python setup_user_profile.py
+# Kill hanging processes
+pkill -f b3_assistant
 
-# Or create manually
-echo '{"name": "User", "work_style": "Flexible"}' > databases/user_profile.json
-```
-
-### 3. Resource and Performance Issues
-
-#### Problem: "High CPU/Memory usage"
-**Symptoms:**
-- System becomes slow
-- Agents take long to respond
-- System shows resource alerts
-
-**Solutions:**
-
-**A. Check Resource Usage**
-```bash
-# Monitor system resources
-python -c "
-from modules.resources import ResourceMonitor
-from pathlib import Path
-rm = ResourceMonitor(Path('databases'))
-print(rm.get_cli_status())
-"
-```
-
-**B. Optimize Model Settings**
-```python
-# Reduce model complexity
-{
-  "ai_models": {
-    "default": {
-      "model_name": "llama2:7b",  # Use smaller model
-      "max_tokens": 1024,         # Reduce token limit
-      "temperature": 0.5          # Lower temperature
-    }
-  }
-}
-```
-
-**C. Enable Throttling**
-```python
-# Adjust throttling thresholds
-{
-  "resources": {
-    "max_memory_mb": 2048,
-    "max_cpu_percent": 80,
-    "throttle_thresholds": {
-      "cpu": 85.0,
-      "memory": 90.0
-    }
-  }
-}
-```
-
-#### Problem: "Slow agent responses"
-**Symptoms:**
-- Agents take >5 seconds to respond
-- System feels unresponsive
-
-**Solutions:**
-
-**A. Check Agent Performance**
-```python
-# View agent performance stats
-from modules.resources import ResourceMonitor
-rm = ResourceMonitor(Path('databases'))
-stats = rm.get_agent_performance()
-for agent, data in stats.items():
-    print(f"{agent}: {data['avg_time']:.2f}s avg")
-```
-
-**B. Optimize Model Configuration**
-```python
-# Use faster model settings
-{
-  "ai_models": {
-    "default": {
-      "model_name": "llama2:7b",
-      "temperature": 0.3,
-      "max_tokens": 512
-    }
-  }
-}
-```
-
-**C. Check System Resources**
-```bash
-# Monitor system during operation
-top -p $(pgrep -f "python.*run_assistant")
-```
-
-### 4. Interface Issues
-
-#### Problem: "GUI not starting"
-**Symptoms:**
-- GUI window doesn't appear
-- Tkinter errors
-- Interface crashes
-
-**Solutions:**
-
-**A. Check Tkinter Installation**
-```python
-# Test Tkinter
-import tkinter as tk
-root = tk.Tk()
-root.destroy()
-print("Tkinter works!")
-```
-
-**B. Install GUI Dependencies**
-```bash
-# Install required packages
-pip install tkinter pillow
-
-# On Ubuntu/Debian
-sudo apt-get install python3-tk
-```
-
-**C. Use CLI Alternative**
-```bash
-# Switch to CLI interface
-export B3_INTERFACE=cli
+# Wait and retry
+sleep 5
 python run_assistant.py
+
+# Use different database path
+export DATABASE_PATH=databases/b3_assistant_new.db
 ```
 
-#### Problem: "CLI colors not working"
-**Symptoms:**
-- No colored output
-- Plain text interface
-- Rich library errors
+## 🎬 Video Processing Issues
+
+### FFmpeg Not Found
+
+**Problem:** Video processing fails due to missing FFmpeg
 
 **Solutions:**
-
-**A. Install Rich Library**
 ```bash
-pip install rich
+# Install FFmpeg (Ubuntu/Debian)
+sudo apt update
+sudo apt install ffmpeg
+
+# Install FFmpeg (macOS)
+brew install ffmpeg
+
+# Install FFmpeg (Windows)
+# Download from https://ffmpeg.org/download.html
 
 # Verify installation
-python -c "from rich import print; print('[red]Test[/red]')"
+ffmpeg -version
 ```
 
-**B. Check Terminal Support**
-```bash
-# Test color support
-python -c "
-from rich.console import Console
-console = Console()
-console.print('[red]Red text[/red]')
-"
-```
+### Video Processing Errors
 
-**C. Disable Colors**
-```bash
-# Force plain text
-export FORCE_COLOR=0
-python run_assistant.py
-```
-
-### 5. Configuration Issues
-
-#### Problem: "Configuration not loading"
-**Symptoms:**
-- Default settings always used
-- Changes not saved
-- Config file errors
+**Problem:** Video processing fails or produces errors
 
 **Solutions:**
-
-**A. Check Config File**
 ```bash
-# Verify config file exists
-ls -la config.json
+# Check video file
+ffprobe input.mp4
 
-# Check file permissions
-chmod 644 config.json
+# Use smaller video for testing
+ffmpeg -i input.mp4 -t 30 -c copy test_30s.mp4
+
+# Check available formats
+python -c "from modules.video_processing import VideoProcessor; p = VideoProcessor(); print(p.get_supported_formats())"
+
+# Enable debug mode
+export DEBUG_MODE=true
+python demo_video_workflow.py
 ```
 
-**B. Reset Configuration**
-```bash
-# Backup current config
-cp config.json config.json.backup
+### Memory Issues During Video Processing
 
-# Remove and recreate
-rm config.json
-python run_assistant.py  # Will create new config
-```
-
-**C. Environment Variables**
-```bash
-# Set configuration via environment
-export B3_DEBUG_MODE=true
-export B3_DEFAULT_MODEL=llama2
-export B3_GUI_THEME=retro
-```
-
-### 6. Agent Communication Issues
-
-#### Problem: "Agents not communicating"
-**Symptoms:**
-- Agents work individually but not together
-- Orchestrator errors
-- Multi-agent workflows fail
+**Problem:** Out of memory during video processing
 
 **Solutions:**
-
-**A. Check Orchestrator**
 ```python
-# Test orchestrator
-from core.orchestrator import Orchestrator
-from modules.knowledge import KnowledgeManager
-from modules.tasks import TaskManager
-from modules.conversation import ConversationManager
-
-# Initialize components
-knowledge = KnowledgeManager()
-tasks = TaskManager()
-conversation = ConversationManager()
-
-# Test orchestrator
-orchestrator = Orchestrator(knowledge, tasks, conversation)
-result = orchestrator.route_request("Test communication")
-print(f"Success: {result.success}")
-```
-
-**B. Check Agent Registration**
-```python
-# Verify agents are registered
-from core.orchestrator import AgentRole
-print("Registered agents:", [role.value for role in AgentRole])
-```
-
-**C. Test Agent Communication**
-```python
-# Test direct agent communication
-from core.agents import AlphaAgent, BetaAgent
-
-alpha = AlphaAgent()
-beta = BetaAgent()
-
-# Test communication
-response = alpha.send_message("Beta", "Test message")
-print(f"Beta response: {response}")
-```
-
-### 7. Knowledge Management Issues
-
-#### Problem: "Zettelkasten not working"
-**Symptoms:**
-- Notes not created
-- Links not working
-- Search not finding notes
-
-**Solutions:**
-
-**A. Check Knowledge Directory**
-```bash
-# Verify X/ directory exists
-ls -la X/
-
-# Create if missing
-mkdir -p X/_metadata
-```
-
-**B. Test Knowledge Manager**
-```python
-# Test knowledge manager
-from modules.knowledge import KnowledgeManager
-
-km = KnowledgeManager()
-
-# Create test note
-note_id = km.create_note("Test Note", "Test content", tags=["test"])
-print(f"Created note: {note_id}")
-
-# Search notes
-results = km.search_notes("test")
-print(f"Found {len(results)} notes")
-```
-
-**C. Check Database**
-```bash
-# Verify knowledge database
-ls -la X/_metadata/zettelkasten.db
-
-# Check database integrity
-sqlite3 X/_metadata/zettelkasten.db "PRAGMA integrity_check;"
-```
-
-### 8. Task Management Issues
-
-#### Problem: "Tasks not saving"
-**Symptoms:**
-- Tasks disappear after restart
-- Task creation fails
-- No task history
-
-**Solutions:**
-
-**A. Check Task Database**
-```bash
-# Verify task database
-ls -la databases/tasks.db
-
-# Check database integrity
-sqlite3 databases/tasks.db "PRAGMA integrity_check;"
-```
-
-**B. Test Task Manager**
-```python
-# Test task manager
-from modules.tasks import TaskManager, TaskPriority
-
-tm = TaskManager()
-
-# Create test task
-task_id = tm.create_task("Test Task", priority=TaskPriority.HIGH)
-print(f"Created task: {task_id}")
-
-# List tasks
-tasks = tm.list_tasks()
-print(f"Found {len(tasks)} tasks")
-```
-
-**C. Check Permissions**
-```bash
-# Ensure write permissions
-chmod 755 databases/
-chmod 644 databases/tasks.db
-```
-
-## 🔧 Advanced Troubleshooting
-
-### System Diagnostics
-
-#### Complete System Check
-```bash
-#!/bin/bash
-echo "=== B3PersonalAssistant System Diagnostics ==="
-
-echo "1. Python Environment"
-python --version
-pip list | grep -E "(ollama|rich|tkinter)"
-
-echo "2. Ollama Status"
-ollama list 2>/dev/null || echo "Ollama not found"
-
-echo "3. Database Status"
-ls -la databases/ 2>/dev/null || echo "Databases directory not found"
-
-echo "4. Configuration"
-ls -la config.json 2>/dev/null || echo "Config file not found"
-
-echo "5. Resource Usage"
-python -c "
-from modules.resources import ResourceMonitor
-from pathlib import Path
-try:
-    rm = ResourceMonitor(Path('databases'))
-    print(rm.get_cli_status())
-except Exception as e:
-    print(f'Resource monitor error: {e}')
-"
-```
-
-#### Performance Profiling
-```python
-import time
-import cProfile
-import pstats
-
-def profile_system():
-    profiler = cProfile.Profile()
-    profiler.enable()
-    
-    # Run system operations
-    from core.config import get_config
-    config = get_config()
-    
-    from modules.knowledge import KnowledgeManager
-    km = KnowledgeManager()
-    
-    from modules.tasks import TaskManager
-    tm = TaskManager()
-    
-    profiler.disable()
-    
-    # Print results
-    stats = pstats.Stats(profiler)
-    stats.sort_stats('cumulative')
-    stats.print_stats(10)
-
-# Run profiling
-profile_system()
-```
-
-### Log Analysis
-
-#### Enable Debug Logging
-```python
-import logging
-
-# Set up debug logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('b3_debug.log'),
-        logging.StreamHandler()
-    ]
+# Use lower quality settings
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    quality="medium",
+    resolution="1280x720",
+    segment_duration=30
 )
 
-# Run system with debug logging
-python run_assistant.py
+# Process in smaller chunks
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    max_segments=5
+)
 ```
 
-#### Analyze Logs
+## 🤖 Agent System Issues
+
+### Agent Communication Failures
+
+**Problem:** Agents not communicating or coordinating properly
+
+**Solutions:**
 ```bash
-# Check for errors
-grep -i error b3_debug.log
+# Check agent status
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); print(o.get_system_status())"
 
-# Check for warnings
-grep -i warning b3_debug.log
+# Restart orchestrator
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); o.restart()"
 
+# Test agent communication
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); print(o.process_request('test communication'))"
+```
+
+### Agent Model Issues
+
+**Problem:** Agents using wrong or unavailable models
+
+**Solutions:**
+```bash
+# Check available models
+ollama list
+
+# Pull required model
+ollama pull llama2
+
+# Update agent configuration
+# Edit config/agents.json to use available models
+
+# Test model availability
+python -c "from core.agents import BaseAgent; agent = BaseAgent('test', 'test', 'llama2'); print(agent.test_model())"
+```
+
+### Agent Performance Issues
+
+**Problem:** Specific agents performing poorly
+
+**Solutions:**
+```bash
 # Check agent performance
-grep "agent.*response" b3_debug.log
+python -c "from monitoring.health_check import HealthChecker; h = HealthChecker(); print(h.get_agent_status())"
+
+# Restart specific agent
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); o.restart_agent('alpha')"
+
+# Update agent model
+python -c "from core.orchestrator import Orchestrator; o = Orchestrator(); o.get_agent('alpha').update_model('llama2:7b')"
 ```
 
-### Recovery Procedures
+## 🔍 Debugging Techniques
 
-#### Complete System Reset
+### Enable Debug Mode
+
 ```bash
-#!/bin/bash
-echo "=== Complete System Reset ==="
+# Enable debug logging
+export DEBUG_MODE=true
+export LOG_LEVEL=DEBUG
 
-# Backup current data
-mkdir -p backups/$(date +%Y%m%d_%H%M%S)
-cp -r databases/ backups/$(date +%Y%m%d_%H%M%S)/
-cp -r X/ backups/$(date +%Y%m%d_%H%M%S)/
+# Run with debug output
+python run_assistant.py --verbose
 
-# Remove all data
-rm -rf databases/*
-rm -rf X/*
-rm -f config.json
-rm -f *.log
-
-# Reinitialize system
-python run_assistant.py
+# Check logs
+tail -f logs/b3_assistant_*.log
 ```
 
-#### Selective Recovery
+### System Health Check
+
 ```bash
-# Recover specific components
-cp backups/latest/conversations.db databases/
-cp backups/latest/user_profile.json databases/
-cp backups/latest/config.json ./
+# Run comprehensive health check
+python scripts/start_production.py --health-check
+
+# Check specific components
+python -c "from monitoring.health_check import HealthChecker; h = HealthChecker(); print(h.check_all())"
+```
+
+### Performance Monitoring
+
+```bash
+# Monitor system resources
+htop
+
+# Check disk usage
+df -h
+
+# Monitor network
+netstat -tuln
+
+# Check processes
+ps aux | grep python
 ```
 
 ## 📞 Getting Help
@@ -601,12 +434,11 @@ cp backups/latest/config.json ./
 ### Before Asking for Help
 
 1. **Check this guide** for your specific issue
-2. **Run diagnostics** to gather system information
-3. **Check logs** for error messages
-4. **Try basic solutions** first
-5. **Document your steps** and results
+2. **Enable debug mode** and check logs
+3. **Try the solutions** listed above
+4. **Gather information** about your system
 
-### Information to Provide
+### Information to Include
 
 When reporting issues, include:
 
@@ -614,69 +446,38 @@ When reporting issues, include:
 # System information
 python --version
 pip list
-ollama --version
-
-# Error logs
-tail -n 50 b3_debug.log
-
-# System status
-python -c "from modules.resources import ResourceMonitor; print(ResourceMonitor(Path('databases')).get_cli_status())"
+uname -a
 
 # Configuration
-cat config.json
+cat .env
+cat config/agents.json
+
+# Error logs
+tail -n 50 logs/b3_assistant_*.log
+
+# Health check
+python scripts/start_production.py --health-check
 ```
 
 ### Support Channels
 
-- **GitHub Issues**: For bug reports and feature requests
-- **GitHub Discussions**: For questions and community help
-- **Documentation**: Check [User Guide](USER_GUIDE.md) and [API Docs](API_DOCS.md)
-- **Email Support**: For complex issues requiring direct assistance
+- **📖 Documentation**: [User Guide](USER_GUIDE.md)
+- **🔌 API Reference**: [API Documentation](API_DOCS.md)
+- **🐛 GitHub Issues**: [Report bugs](https://github.com/PROF-B3/b3personalassistant/issues)
+- **💬 Discussions**: [Ask questions](https://github.com/PROF-B3/b3personalassistant/discussions)
 
-## 🔮 Prevention Tips
+### Common Solutions Summary
 
-### Regular Maintenance
-
-```bash
-# Weekly maintenance script
-#!/bin/bash
-
-echo "=== Weekly B3PersonalAssistant Maintenance ==="
-
-# 1. Create backup
-python -c "
-from core.orchestrator import Orchestrator
-orchestrator = Orchestrator(None, None, None)
-orchestrator.backup_data('weekly_backups')
-"
-
-# 2. Check system health
-python -c "
-from modules.resources import ResourceMonitor
-rm = ResourceMonitor(Path('databases'))
-dashboard = rm.get_status_dashboard()
-print('System Health:', dashboard)
-"
-
-# 3. Clean old logs
-find . -name "*.log" -mtime +7 -delete
-
-# 4. Update models (optional)
-ollama pull llama2:latest
-```
-
-### Best Practices
-
-1. **Regular Backups**: Set up automatic daily backups
-2. **Monitor Resources**: Keep an eye on system performance
-3. **Update Regularly**: Keep Ollama models and Python packages updated
-4. **Test Changes**: Test configuration changes in a safe environment
-5. **Document Issues**: Keep notes of problems and solutions
+| Issue | Quick Fix |
+|-------|-----------|
+| **Import errors** | `pip install -r requirements-minimal.txt` |
+| **Ollama connection** | `ollama serve` |
+| **Database errors** | `python scripts/init_database.py` |
+| **Video processing** | Install FFmpeg |
+| **High memory usage** | Use smaller model (`llama2:7b`) |
+| **Slow performance** | Reduce concurrent tasks |
+| **Configuration issues** | Copy and edit `.env` file |
 
 ---
 
-**"Remember, every challenge is an opportunity to improve the system. Your troubleshooting efforts contribute to the collective knowledge that shapes the future of AI assistance."**
-
-— Prof. B3, Temporal Research Institute, 2073
-
-*For user documentation, see [User Guide](USER_GUIDE.md). For API reference, see [API Documentation](API_DOCS.md).* 
+**Still having issues? Check the [User Guide](USER_GUIDE.md) for detailed instructions or ask in [GitHub Discussions](https://github.com/PROF-B3/b3personalassistant/discussions).** 

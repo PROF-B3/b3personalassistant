@@ -1,726 +1,520 @@
-# B3PersonalAssistant API Documentation 🔧
+# 🔌 API Documentation
 
-> *"The API is the bridge between human intention and AI execution. Master it, and you master the future."* — Prof. B3
+> **Developer reference for B3PersonalAssistant**
 
-## 📚 Overview
+## 📋 Table of Contents
 
-This document provides comprehensive API documentation for B3PersonalAssistant, covering all modules, classes, and methods. Each section includes code examples, usage patterns, and integration guidelines.
+1. [Core Classes](#core-classes)
+2. [Agent System](#agent-system)
+3. [Modules](#modules)
+4. [Database](#database)
+5. [Configuration](#configuration)
+6. [Monitoring](#monitoring)
 
-## 🏗️ Core Module
+## 🏗️ Core Classes
 
-### Agents (`core/agents.py`)
+### Orchestrator
 
-#### AgentBase Class
-
-The base class for all AI agents in the system.
-
-```python
-from core.agents import AgentBase
-
-class AgentBase:
-    def __init__(self, name: str, orchestrator=None, user_profile=None, resource_monitor=None):
-        """
-        Initialize a base agent.
-        
-        Args:
-            name: Agent name (e.g., 'Alpha', 'Beta')
-            orchestrator: Reference to the orchestrator for inter-agent communication
-            user_profile: User preferences and settings
-            resource_monitor: Resource monitoring instance
-        """
-```
-
-**Methods:**
-
-- `act(input_data, context=None)`: Main agent action method
-- `communicate(message, context=None)`: Agent-to-agent communication
-- `think(input_data, context=None)`: Internal reasoning
-- `send_message(to_agent, message, context=None)`: Send message to another agent
-- `handle_error(error, context=None)`: Error handling
-- `adapt_to_user(text)`: Adapt output to user preferences
-
-**Example Usage:**
-```python
-from core.agents import AgentBase
-
-class CustomAgent(AgentBase):
-    def act(self, input_data, context=None):
-        # Custom logic here
-        result = f"Custom agent processed: {input_data}"
-        return self.adapt_to_user(result)
-
-# Usage
-agent = CustomAgent("Custom", orchestrator=orchestrator, user_profile=profile)
-response = agent.act("Hello world")
-```
-
-#### Specialized Agents
-
-##### AlphaAgent
-```python
-from core.agents import AlphaAgent
-
-alpha = AlphaAgent(orchestrator=orchestrator, user_profile=profile)
-response = alpha.act("Coordinate a research project")
-```
-
-##### BetaAgent
-```python
-from core.agents import BetaAgent
-
-beta = BetaAgent(orchestrator=orchestrator, user_profile=profile)
-response = beta.act("Research quantum computing")
-```
-
-##### GammaAgent
-```python
-from core.agents import GammaAgent
-
-gamma = GammaAgent(orchestrator=orchestrator, user_profile=profile)
-response = gamma.act("Create notes on machine learning")
-```
-
-##### DeltaAgent
-```python
-from core.agents import DeltaAgent
-
-delta = DeltaAgent(orchestrator=orchestrator, user_profile=profile)
-response = delta.act("Create task list for project")
-```
-
-### Orchestrator (`core/orchestrator.py`)
-
-#### Orchestrator Class
-
-Coordinates multi-agent workflows and task routing.
+The central coordination hub for the multi-agent system.
 
 ```python
 from core.orchestrator import Orchestrator
 
-class Orchestrator:
-    def __init__(self, knowledge, tasks, conversation, gui_callback=None, 
-                 user_profile=None, resource_monitor=None):
-        """
-        Initialize the orchestrator.
-        
-        Args:
-            knowledge: KnowledgeManager instance
-            tasks: TaskManager instance
-            conversation: ConversationManager instance
-            gui_callback: Callback for GUI updates
-            user_profile: User preferences
-            resource_monitor: Resource monitoring instance
-        """
+# Initialize orchestrator
+orchestrator = Orchestrator()
+
+# Process requests
+response = orchestrator.process_request("Research quantum computing")
+print(response)
+
+# Get specific agent
+beta = orchestrator.get_agent("beta")
+research = beta.research("AI trends")
 ```
 
-**Methods:**
+**Key Methods:**
 
-- `route_request(user_input, context=None)`: Route user request to appropriate agents
-- `agent_communicate(from_agent, to_agent, message, context=None)`: Enable agent communication
-- `backup_data(backup_dir="backups")`: Backup all system data
-- `restore_data(backup_file)`: Restore data from backup
-- `get_example_workflows()`: Get predefined workflow templates
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `process_request()` | Route request to appropriate agent | `request: str` | `str` |
+| `get_agent()` | Get specific agent instance | `agent_name: str` | `BaseAgent` |
+| `get_all_agents()` | Get all agent instances | None | `dict` |
+| `get_system_status()` | Get overall system status | None | `dict` |
 
-**Example Usage:**
-```python
-from core.orchestrator import Orchestrator
-from modules.knowledge import KnowledgeManager
-from modules.tasks import TaskManager
-from modules.conversation import ConversationManager
+### ConfigManager
 
-# Initialize managers
-knowledge = KnowledgeManager()
-tasks = TaskManager()
-conversation = ConversationManager()
+Manages system configuration and environment variables.
 
-# Create orchestrator
-orchestrator = Orchestrator(
-    knowledge=knowledge,
-    tasks=tasks,
-    conversation=conversation,
-    user_profile=user_profile
-)
-
-# Route a request
-result = orchestrator.route_request("Research AI trends and create tasks")
-print(result.success, result.result, result.steps)
-
-# Backup data
-backup_result = orchestrator.backup_data("my_backups")
-print(f"Backup created: {backup_result}")
-```
-
-### Configuration (`core/config.py`)
-
-#### ConfigManager Class
-
-Manages system configuration with support for multiple sources.
-
-```python
-from core.config import ConfigManager, get_config
-
-# Get global config instance
-config = get_config()
-
-# Or create custom instance
-config_manager = ConfigManager("custom_config.json", profile="developer")
-```
-
-**Methods:**
-
-- `load_config()`: Load configuration from all sources
-- `save_config(config_file=None)`: Save current configuration
-- `get_agent_config(agent_name)`: Get agent-specific configuration
-- `get_model_config(model_name="default")`: Get AI model configuration
-- `update_user_preference(key, value)`: Update user preference
-- `create_profile(profile_name)`: Create new user profile
-- `load_profile(profile_name)`: Load user profile
-- `list_profiles()`: List available profiles
-
-**Example Usage:**
 ```python
 from core.config import ConfigManager
 
-# Create config manager
+# Initialize config
 config = ConfigManager()
 
-# Get model configuration
-model_config = config.get_model_config("llama2")
-print(f"Model: {model_config.model_name}, Temp: {model_config.temperature}")
+# Get configuration values
+ollama_url = config.get("OLLAMA_BASE_URL")
+model = config.get("OLLAMA_MODEL")
+debug_mode = config.get_bool("DEBUG_MODE")
 
-# Update user preference
-config.update_user_preference("default_agent", "Beta")
+# Set configuration
+config.set("CUSTOM_SETTING", "value")
+```
 
-# Save configuration
-config.save_config("my_config.json")
+**Key Methods:**
 
-# Create profile
-config.create_profile("researcher")
-config.load_profile("researcher")
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `get()` | Get string configuration | `key: str, default=None` | `str` |
+| `get_int()` | Get integer configuration | `key: str, default=0` | `int` |
+| `get_bool()` | Get boolean configuration | `key: str, default=False` | `bool` |
+| `set()` | Set configuration value | `key: str, value: str` | None |
+
+## 🤖 Agent System
+
+### BaseAgent
+
+Base class for all agents with common functionality.
+
+```python
+from core.agents import BaseAgent
+
+class CustomAgent(BaseAgent):
+    def __init__(self, name, role, model):
+        super().__init__(name, role, model)
+    
+    def process(self, request):
+        """Process a request"""
+        return f"Processed: {request}"
+    
+    def get_status(self):
+        """Get agent status"""
+        return {"status": "active", "requests_processed": 100}
+```
+
+**Key Methods:**
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `process()` | Process a request | `request: str` | `str` |
+| `get_status()` | Get agent status | None | `dict` |
+| `get_capabilities()` | Get agent capabilities | None | `list` |
+| `update_model()` | Update AI model | `model: str` | None |
+
+### Agent Instances
+
+Each agent has specialized methods:
+
+```python
+# Beta (Research Agent)
+beta = orchestrator.get_agent("beta")
+research = beta.research("quantum computing")
+analysis = beta.analyze_data(data)
+
+# Gamma (Knowledge Agent)
+gamma = orchestrator.get_agent("gamma")
+note = gamma.create_note("Machine Learning Basics")
+links = gamma.find_connections("neural networks")
+
+# Delta (Task Agent)
+delta = orchestrator.get_agent("delta")
+task = delta.create_task("Complete project", due_date="2024-02-15")
+project = delta.create_project("Website Redesign")
+
+# Epsilon (Creative Agent)
+epsilon = orchestrator.get_agent("epsilon")
+idea = epsilon.brainstorm("video themes")
+creative = epsilon.generate_content("futuristic text")
+
+# Zeta (Code Agent)
+zeta = orchestrator.get_agent("zeta")
+review = zeta.review_code(python_code)
+optimized = zeta.optimize_code(python_code)
+
+# Eta (Evolution Agent)
+eta = orchestrator.get_agent("eta")
+improvements = eta.suggest_improvements()
+metrics = eta.get_performance_metrics()
 ```
 
 ## 📦 Modules
 
-### Knowledge Management (`modules/knowledge.py`)
+### VideoProcessor
 
-#### KnowledgeManager Class
-
-Manages the Zettelkasten knowledge system.
+Handles AI-powered video processing and editing.
 
 ```python
-from modules.knowledge import KnowledgeManager
+from modules.video_processing import VideoProcessor
 
-knowledge = KnowledgeManager()
-```
+# Initialize processor
+processor = VideoProcessor()
 
-**Methods:**
-
-- `create_note(title, content, tags=None, links=None)`: Create new note
-- `get_note(note_id)`: Retrieve note by ID
-- `search_notes(query, search_type="full_text")`: Search notes
-- `link_notes(note1_id, note2_id, link_type="related")`: Link notes
-- `get_connections(note_id)`: Get note connections
-- `export_notes(format="markdown")`: Export knowledge base
-- `import_notes(file_path)`: Import notes from file
-
-**Example Usage:**
-```python
-from modules.knowledge import KnowledgeManager
-
-# Initialize knowledge manager
-km = KnowledgeManager()
-
-# Create a note
-note_id = km.create_note(
-    title="Machine Learning Basics",
-    content="Machine learning is a subset of AI...",
-    tags=["ai", "ml", "basics"],
-    links=["neural-networks", "deep-learning"]
+# Basic video processing
+processor.process_video(
+    input_path="input.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    segment_duration=60
 )
 
-# Search notes
-results = km.search_notes("machine learning")
-for note in results:
-    print(f"Found: {note.title}")
-
-# Get connections
-connections = km.get_connections(note_id)
-print(f"Connected notes: {connections}")
-
-# Export knowledge base
-km.export_notes("my_knowledge_base.md")
-```
-
-### Task Management (`modules/tasks.py`)
-
-#### TaskManager Class
-
-Manages tasks, projects, and workflows.
-
-```python
-from modules.tasks import TaskManager, Task, TaskPriority, TaskStatus
-
-task_manager = TaskManager()
-```
-
-**Methods:**
-
-- `create_task(title, description=None, priority=TaskPriority.MEDIUM, 
-               due_date=None, category=None)`: Create new task
-- `get_task(task_id)`: Retrieve task by ID
-- `update_task(task_id, **kwargs)`: Update task properties
-- `delete_task(task_id)`: Delete task
-- `list_tasks(status=None, category=None, priority=None)`: List tasks with filters
-- `create_project(name, description=None)`: Create new project
-- `add_task_to_project(task_id, project_id)`: Add task to project
-- `get_task_statistics()`: Get task completion statistics
-- `optimize_schedule()`: AI-powered schedule optimization
-
-**Example Usage:**
-```python
-from modules.tasks import TaskManager, TaskPriority, TaskStatus
-from datetime import datetime, timedelta
-
-# Initialize task manager
-tm = TaskManager()
-
-# Create a task
-task_id = tm.create_task(
-    title="Complete project documentation",
-    description="Write comprehensive documentation for the project",
-    priority=TaskPriority.HIGH,
-    due_date=datetime.now() + timedelta(days=7),
-    category="work"
+# Advanced processing with custom config
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="custom",
+    custom_config={
+        "colors": ["cyan", "magenta"],
+        "effects": ["glitch", "neon"],
+        "text_style": "futuristic",
+        "segment_duration": 30,
+        "fps": 30
+    }
 )
-
-# Update task status
-tm.update_task(task_id, status=TaskStatus.IN_PROGRESS)
-
-# List high priority tasks
-high_priority_tasks = tm.list_tasks(priority=TaskPriority.HIGH)
-for task in high_priority_tasks:
-    print(f"Task: {task.title}, Due: {task.due_date}")
-
-# Get statistics
-stats = tm.get_task_statistics()
-print(f"Completed: {stats['completed']}, Pending: {stats['pending']}")
-
-# Optimize schedule
-optimized_schedule = tm.optimize_schedule()
-print("Optimized schedule:", optimized_schedule)
 ```
 
-### Conversation Management (`modules/conversation.py`)
+**Key Methods:**
 
-#### ConversationManager Class
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `process_video()` | Process video with AI enhancements | `input_path, output_dir, theme, **kwargs` | `list` |
+| `detect_scenes()` | Detect video scenes | `video_path: str` | `list` |
+| `generate_overlay()` | Generate text overlay | `text: str, theme: str` | `str` |
+| `apply_effects()` | Apply visual effects | `video_path: str, effects: list` | `str` |
+
+### ConversationManager
 
 Manages conversation history and context.
 
 ```python
-from modules.conversation import ConversationManager, Message, Session
-
-conversation = ConversationManager()
-```
-
-**Methods:**
-
-- `add_message(content, sender="user", session_id=None, 
-               sentiment=None, quality=None)`: Add message to conversation
-- `get_conversation(session_id=None, limit=None)`: Retrieve conversation history
-- `search_conversations(query)`: Search conversation history
-- `export_conversation(session_id, format="json")`: Export conversation
-- `analyze_sentiment(text)`: Analyze message sentiment
-- `get_user_preferences()`: Extract user preferences from conversations
-- `create_session(name=None)`: Create new conversation session
-
-**Example Usage:**
-```python
 from modules.conversation import ConversationManager
 
 # Initialize conversation manager
-cm = ConversationManager()
-
-# Create a session
-session_id = cm.create_session("Project Planning")
+conversation = ConversationManager()
 
 # Add messages
-cm.add_message("I need to plan my project", "user", session_id)
-cm.add_message("I'll help you create a comprehensive project plan", "alpha", session_id)
+conversation.add_message("user", "Hello, how are you?")
+conversation.add_message("alpha", "I'm doing well, thank you!")
 
 # Get conversation history
-conversation = cm.get_conversation(session_id)
-for msg in conversation:
-    print(f"{msg.sender}: {msg.content}")
+history = conversation.get_history()
+context = conversation.get_context()
 
-# Search conversations
-results = cm.search_conversations("project planning")
-for result in results:
-    print(f"Found in session {result.session_id}: {result.content}")
-
-# Export conversation
-cm.export_conversation(session_id, "project_planning_chat.json")
+# Clear conversation
+conversation.clear()
 ```
 
-### Resource Monitoring (`modules/resources.py`)
+**Key Methods:**
 
-#### ResourceMonitor Class
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `add_message()` | Add message to history | `sender: str, content: str` | None |
+| `get_history()` | Get conversation history | `limit: int = 50` | `list` |
+| `get_context()` | Get conversation context | None | `str` |
+| `clear()` | Clear conversation history | None | None |
 
-Monitors system resources and performance.
+### TaskManager
 
-```python
-from modules.resources import ResourceMonitor, SystemMetrics
-
-monitor = ResourceMonitor(Path("databases"))
-```
-
-**Methods:**
-
-- `get_current_metrics()`: Get current system metrics
-- `get_process_info(pid=None)`: Get process information
-- `get_top_processes(n=10, sort_by="cpu")`: Get top processes by resource usage
-- `monitor_ollama_status()`: Check Ollama model status
-- `get_database_sizes()`: Get database file sizes
-- `record_agent_response(agent_name, response_time, success=True)`: Record agent performance
-- `get_agent_performance()`: Get agent performance statistics
-- `check_alerts_and_throttle(metrics)`: Check for resource alerts
-- `get_status_dashboard()`: Get comprehensive status dashboard
-- `get_cli_status()`: Get CLI-friendly status string
-- `log_performance(log_path="performance.log")`: Log performance data
-
-**Example Usage:**
-```python
-from modules.resources import ResourceMonitor
-from pathlib import Path
-
-# Initialize resource monitor
-rm = ResourceMonitor(Path("databases"))
-
-# Get current metrics
-metrics = rm.get_current_metrics()
-print(f"CPU: {metrics.cpu_percent}%, Memory: {metrics.memory_percent}%")
-
-# Check Ollama status
-ollama_status = rm.monitor_ollama_status()
-print(f"Ollama: {ollama_status['status']}")
-
-# Record agent performance
-rm.record_agent_response("Alpha", 1.5, success=True)
-
-# Get performance statistics
-perf_stats = rm.get_agent_performance()
-for agent, stats in perf_stats.items():
-    print(f"{agent}: {stats['avg_time']:.2f}s avg, {stats['success_rate']}% success")
-
-# Get status dashboard
-dashboard = rm.get_status_dashboard()
-print(f"System Status: {dashboard['cpu_percent']}% CPU, {dashboard['memory_percent']}% Memory")
-
-# Log performance
-rm.log_performance("my_performance.log")
-```
-
-## 🖥️ Interfaces
-
-### GUI Launcher (`interfaces/gui_launcher.py`)
-
-#### RetroGUI Class
-
-Retro terminal-style GUI interface.
+Manages tasks and project organization.
 
 ```python
-from interfaces.gui_launcher import launch_gui, RetroGUI
-
-# Launch GUI
-launch_gui(config=config, user_profile=user_profile)
-
-# Or create custom instance
-gui = RetroGUI()
-gui.mainloop()
-```
-
-**Methods:**
-
-- `append(text)`: Append text to panel
-- `clear()`: Clear panel content
-- `export_content()`: Export panel content to file
-- `cycle_focus(current_panel_id)`: Cycle focus between panels
-- `show_hints()`: Show help and hints
-- `start_system()`: Start system
-- `stop_system()`: Stop system
-
-**Example Usage:**
-```python
-from interfaces.gui_launcher import launch_gui
-from core.config import get_config
-
-# Get configuration
-config = get_config()
-
-# Load user profile
-with open("databases/user_profile.json", "r") as f:
-    user_profile = json.load(f)
-
-# Launch GUI
-launch_gui(config=config, user_profile=user_profile)
-```
-
-### CLI Launcher (`interfaces/cli_launcher.py`)
-
-#### CLI Interface Functions
-
-Rich command-line interface with color-coded output.
-
-```python
-from interfaces.cli_launcher import launch_cli, main
-
-# Launch CLI
-launch_cli(config=config, user_profile=user_profile)
-
-# Or run main function
-main()
-```
-
-**Available Commands:**
-- `/help`: Show help menu
-- `/status`: System status
-- `/examples`: Example workflows
-- `/backup`: Create backup
-- `/restore`: Restore from backup
-- `/clear`: Clear chat
-- `/profile`: User profile management
-
-**Example Usage:**
-```python
-from interfaces.cli_launcher import launch_cli
-from core.config import get_config
-
-# Get configuration
-config = get_config()
-
-# Load user profile
-with open("databases/user_profile.json", "r") as f:
-    user_profile = json.load(f)
-
-# Launch CLI
-launch_cli(config=config, user_profile=user_profile)
-```
-
-## 🔧 Integration Examples
-
-### Complete System Setup
-
-```python
-from core.config import get_config
-from core.orchestrator import Orchestrator
-from modules.knowledge import KnowledgeManager
 from modules.tasks import TaskManager
-from modules.conversation import ConversationManager
-from modules.resources import ResourceMonitor
-from pathlib import Path
-import json
 
-# Load configuration and user profile
-config = get_config()
-with open("databases/user_profile.json", "r") as f:
-    user_profile = json.load(f)
-
-# Initialize managers
-knowledge = KnowledgeManager()
+# Initialize task manager
 tasks = TaskManager()
-conversation = ConversationManager()
-resource_monitor = ResourceMonitor(Path("databases"))
 
-# Create orchestrator
-orchestrator = Orchestrator(
-    knowledge=knowledge,
-    tasks=tasks,
-    conversation=conversation,
-    user_profile=user_profile,
-    resource_monitor=resource_monitor
+# Create tasks
+task_id = tasks.create_task(
+    title="Complete project",
+    description="Finish the website redesign",
+    due_date="2024-02-15",
+    priority="high"
 )
 
-# Route a complex request
-result = orchestrator.route_request(
-    "Research quantum computing, create notes, and plan a project"
+# Update task
+tasks.update_task(task_id, status="in_progress")
+
+# Get tasks
+all_tasks = tasks.get_all_tasks()
+project_tasks = tasks.get_tasks_by_project("Website Redesign")
+```
+
+**Key Methods:**
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `create_task()` | Create new task | `title, description, due_date, priority` | `int` |
+| `update_task()` | Update task | `task_id, **kwargs` | `bool` |
+| `get_all_tasks()` | Get all tasks | None | `list` |
+| `get_tasks_by_project()` | Get tasks by project | `project: str` | `list` |
+
+### KnowledgeManager
+
+Manages Zettelkasten knowledge system.
+
+```python
+from modules.knowledge import KnowledgeManager
+
+# Initialize knowledge manager
+knowledge = KnowledgeManager()
+
+# Create notes
+note_id = knowledge.create_note(
+    title="Machine Learning Basics",
+    content="Machine learning is a subset of AI...",
+    tags=["ai", "ml", "algorithms"]
 )
 
-if result.success:
-    print("Success:", result.result)
-    for step in result.steps:
-        print(f"Step: {step['step']}, Agent: {step.get('agent', 'N/A')}")
-else:
-    print("Error:", result.error)
+# Search notes
+results = knowledge.search("neural networks")
+tagged_notes = knowledge.get_notes_by_tag("ai")
+
+# Link concepts
+knowledge.create_link("machine learning", "artificial intelligence")
 ```
 
-### Custom Agent Development
+**Key Methods:**
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `create_note()` | Create new note | `title, content, tags` | `int` |
+| `search()` | Search notes | `query: str` | `list` |
+| `create_link()` | Link concepts | `source: str, target: str` | `bool` |
+| `get_notes_by_tag()` | Get notes by tag | `tag: str` | `list` |
+
+## 🗄️ Database
+
+### DatabaseManager
+
+Manages SQLAlchemy database operations.
 
 ```python
-from core.agents import AgentBase
-from modules.resources import track_agent_performance
+from databases.manager import DatabaseManager
 
-class CustomAgent(AgentBase):
-    def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None):
-        super().__init__("Custom", orchestrator, user_profile, resource_monitor)
-    
-    @track_agent_performance("Custom", ResourceMonitor(Path("databases")))
-    def act(self, input_data, context=None):
-        try:
-            # Custom logic here
-            if "research" in input_data.lower():
-                # Delegate to Beta
-                response = self.send_message("Beta", input_data, context)
-                return f"Research delegated to Beta: {response}"
-            elif "task" in input_data.lower():
-                # Delegate to Delta
-                response = self.send_message("Delta", input_data, context)
-                return f"Task delegated to Delta: {response}"
-            else:
-                return self.adapt_to_user(f"Custom agent processed: {input_data}")
-        except Exception as e:
-            return self.handle_error(e, context)
+# Initialize database manager
+db = DatabaseManager()
 
-# Usage
-custom_agent = CustomAgent(orchestrator=orchestrator, user_profile=user_profile)
-response = custom_agent.act("Research AI trends")
-print(response)
+# Get database stats
+stats = db.get_database_stats()
+print(f"Tables: {stats['tables']}")
+print(f"Records: {stats['total_records']}")
+
+# Backup database
+db.backup_database("backup_20240101.db")
+
+# Restore database
+db.restore_database("backup_20240101.db")
 ```
 
-### Performance Monitoring Integration
+**Key Methods:**
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `get_database_stats()` | Get database statistics | None | `dict` |
+| `backup_database()` | Create database backup | `filename: str` | `bool` |
+| `restore_database()` | Restore from backup | `filename: str` | `bool` |
+| `get_session()` | Get database session | None | `Session` |
+
+### Database Models
 
 ```python
-from modules.resources import ResourceMonitor
-from core.config import get_config
-import time
+from databases.models import Conversation, Task, Note, Agent
 
-# Initialize monitor
-monitor = ResourceMonitor(Path("databases"))
+# Create records
+conversation = Conversation(
+    user_id="user123",
+    agent_name="alpha",
+    message="Hello",
+    timestamp=datetime.now()
+)
 
-# Monitor system during operation
-def monitored_operation():
-    start_time = time.time()
+task = Task(
+    title="Complete project",
+    description="Finish the website redesign",
+    status="pending",
+    priority="high",
+    due_date=datetime(2024, 2, 15)
+)
+
+note = Note(
+    title="Machine Learning",
+    content="Machine learning is...",
+    tags=["ai", "ml"]
+)
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```bash
+# AI Model Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama2
+OPENAI_API_KEY=your_key_here
+
+# System Configuration
+DEBUG_MODE=false
+LOG_LEVEL=INFO
+MAX_CONCURRENT_TASKS=5
+
+# Video Processing
+VIDEO_SEGMENT_DURATION=60
+VIDEO_FPS=30
+VIDEO_QUALITY=high
+
+# Database
+DATABASE_PATH=databases/b3_assistant.db
+BACKUP_ENABLED=true
+```
+
+### Agent Configuration
+
+```json
+{
+  "agents": {
+    "alpha": {
+      "role": "Chief Assistant & Coordinator",
+      "model": "mixtral:latest",
+      "capabilities": ["coordination", "planning", "communication"]
+    },
+    "beta": {
+      "role": "Research Analyst & Data Specialist",
+      "model": "llama2:latest",
+      "capabilities": ["research", "analysis", "investigation"]
+    }
+  }
+}
+```
+
+## 📊 Monitoring
+
+### HealthChecker
+
+Monitors system health and performance.
+
+```python
+from monitoring.health_check import HealthChecker
+
+# Initialize health checker
+checker = HealthChecker()
+
+# Check all systems
+status = checker.check_all()
+print(f"Overall status: {status['overall_status']}")
+
+# Check specific metrics
+cpu_usage = checker.get_cpu_usage()
+memory_usage = checker.get_memory_usage()
+disk_usage = checker.get_disk_usage()
+
+# Check agent status
+agent_status = checker.get_agent_status()
+```
+
+**Key Methods:**
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `check_all()` | Check all systems | None | `dict` |
+| `get_cpu_usage()` | Get CPU usage | None | `float` |
+| `get_memory_usage()` | Get memory usage | None | `float` |
+| `get_disk_usage()` | Get disk usage | None | `float` |
+| `get_agent_status()` | Get agent status | None | `dict` |
+
+### Logging
+
+```python
+import logging
+from core.config import ConfigManager
+
+# Configure logging
+config = ConfigManager()
+logging.basicConfig(
+    level=getattr(logging, config.get("LOG_LEVEL", "INFO")),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/b3_assistant.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("B3PersonalAssistant started")
+```
+
+## 🚀 Usage Examples
+
+### Basic Integration
+
+```python
+from core.orchestrator import Orchestrator
+from core.config import ConfigManager
+
+# Initialize system
+config = ConfigManager()
+orchestrator = Orchestrator()
+
+# Process user request
+def handle_user_request(request):
+    """Handle user request through orchestrator"""
+    try:
+        response = orchestrator.process_request(request)
+        return {"success": True, "response": response}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# Example usage
+result = handle_user_request("Research quantum computing")
+print(result["response"])
+```
+
+### Custom Agent
+
+```python
+from core.agents import BaseAgent
+
+class CustomResearchAgent(BaseAgent):
+    def __init__(self):
+        super().__init__("custom_research", "Custom Research", "llama2")
     
-    # Your operation here
-    result = some_operation()
+    def research(self, topic):
+        """Custom research method"""
+        # Implement custom research logic
+        return f"Custom research on {topic}"
     
-    # Record performance
-    elapsed = time.time() - start_time
-    monitor.record_agent_response("CustomOperation", elapsed, success=True)
+    def analyze(self, data):
+        """Custom analysis method"""
+        # Implement custom analysis logic
+        return f"Analysis of {data}"
+
+# Register custom agent
+orchestrator.register_agent(CustomResearchAgent())
+```
+
+### Video Processing Pipeline
+
+```python
+from modules.video_processing import VideoProcessor
+from modules.knowledge import KnowledgeManager
+
+def create_video_with_knowledge(video_path, topic):
+    """Create video with knowledge integration"""
+    
+    # Get knowledge about topic
+    knowledge = KnowledgeManager()
+    notes = knowledge.search(topic)
+    
+    # Process video with knowledge context
+    processor = VideoProcessor()
+    result = processor.process_video(
+        input_path=video_path,
+        output_dir="output/",
+        theme="neon_cyberpunk",
+        knowledge_context=notes
+    )
     
     return result
-
-# Get performance dashboard
-dashboard = monitor.get_status_dashboard()
-print("System Health:", dashboard)
-
-# Check for alerts
-metrics = monitor.get_current_metrics()
-alerts, throttle, reason = monitor.check_alerts_and_throttle(metrics)
-if alerts:
-    print("Alerts:", alerts)
-if throttle:
-    print(f"Throttling active due to {reason}")
-```
-
-## 📊 Error Handling
-
-### Common Error Patterns
-
-```python
-# Agent error handling
-try:
-    response = agent.act(input_data)
-except Exception as e:
-    error_response = agent.handle_error(e)
-    print(f"Agent error: {error_response}")
-
-# Orchestrator error handling
-result = orchestrator.route_request(user_input)
-if not result.success:
-    print(f"Orchestration failed: {result.error}")
-    # Fallback to Alpha
-    fallback_result = orchestrator.agents[AgentRole.ALPHA].act(user_input)
-
-# Resource monitoring error handling
-try:
-    metrics = monitor.get_current_metrics()
-except Exception as e:
-    print(f"Monitoring error: {e}")
-    # Use default metrics
-    metrics = SystemMetrics(timestamp=datetime.now(), cpu_percent=0, ...)
-```
-
-## 🔮 Advanced Usage
-
-### Custom Workflow Creation
-
-```python
-# Define custom workflow
-class CustomWorkflow:
-    def __init__(self, orchestrator):
-        self.orchestrator = orchestrator
-    
-    def execute(self, user_input):
-        steps = []
-        
-        # Step 1: Research
-        beta_response = self.orchestrator.agents[AgentRole.BETA].act(user_input)
-        steps.append({"step": "research", "agent": "Beta", "result": beta_response})
-        
-        # Step 2: Knowledge organization
-        gamma_response = self.orchestrator.agents[AgentRole.GAMMA].act(beta_response)
-        steps.append({"step": "knowledge", "agent": "Gamma", "result": gamma_response})
-        
-        # Step 3: Task creation
-        delta_response = self.orchestrator.agents[AgentRole.DELTA].act(gamma_response)
-        steps.append({"step": "tasks", "agent": "Delta", "result": delta_response})
-        
-        # Step 4: Coordination
-        alpha_response = self.orchestrator.agents[AgentRole.ALPHA].act(delta_response)
-        steps.append({"step": "coordination", "agent": "Alpha", "result": alpha_response})
-        
-        return alpha_response, steps
-
-# Usage
-workflow = CustomWorkflow(orchestrator)
-result, steps = workflow.execute("Create a learning plan for AI")
-```
-
-### Plugin System Integration
-
-```python
-# Plugin interface
-class PluginInterface:
-    def __init__(self, orchestrator):
-        self.orchestrator = orchestrator
-    
-    def register_plugin(self, plugin_name, plugin_class):
-        # Register custom plugin
-        pass
-    
-    def execute_plugin(self, plugin_name, input_data):
-        # Execute registered plugin
-        pass
-
-# Example plugin
-class WeatherPlugin:
-    def __init__(self, orchestrator):
-        self.orchestrator = orchestrator
-    
-    def get_weather(self, location):
-        # Weather API integration
-        return f"Weather for {location}: Sunny, 25°C"
-    
-    def act(self, input_data):
-        if "weather" in input_data.lower():
-            location = extract_location(input_data)
-            return self.get_weather(location)
-        return None
 ```
 
 ---
 
-**"The API is your gateway to the future. Use it wisely, and you'll unlock the full potential of multi-agent AI assistance."**
-
-— Prof. B3, Temporal Research Institute, 2073
-
-*For user documentation, see [User Guide](USER_GUIDE.md). For troubleshooting, see [Troubleshooting Guide](TROUBLESHOOTING.md).* 
+**For more examples and advanced usage, see the [User Guide](USER_GUIDE.md) and [Quick Start Guide](QUICK_START.md).** 

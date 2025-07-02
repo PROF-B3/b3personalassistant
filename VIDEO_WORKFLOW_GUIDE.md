@@ -1,248 +1,527 @@
-# B3 Video Editing Workflow Guide
+# 🎬 Video Workflow Guide
 
-## Overview
+> **Complete guide to AI-powered video processing with B3PersonalAssistant**
 
-The B3 Personal Assistant system is designed to support exactly the kind of collaborative video editing workflow you described. This guide explains how all 7 agents work together to create futuristic video remixes with AI-generated imagery, text overlays, and thematic effects.
+## 📋 Table of Contents
 
-## Agent Roles in Video Editing
+1. [Overview](#overview)
+2. [Quick Start](#quick-start)
+3. [Available Themes](#available-themes)
+4. [Advanced Features](#advanced-features)
+5. [Collaborative Workflow](#collaborative-workflow)
+6. [Customization](#customization)
+7. [Troubleshooting](#troubleshooting)
 
-### 🤖 Alpha (Α) - Chief Coordinator
-**Role**: Orchestrates the entire video editing project
-- Breaks down complex video projects into phases
-- Assigns roles to other agents based on their expertise
-- Monitors progress and resolves conflicts
-- Ensures quality and timeline adherence
-- Coordinates communication between all agents
+## 🚀 Overview
 
-**Example Response**:
-```
-"Fascinating project! I'll coordinate the team for this creative endeavor. 
-We'll need Epsilon for creative direction, Beta for future theme research, 
-Zeta for technical implementation, and Delta to optimize the workflow."
-```
+B3PersonalAssistant features an advanced AI-powered video processing system that automatically:
 
-### 🔍 Beta (Β) - Research Analyst
-**Role**: Researches themes, trends, and provides data-driven insights
-- Researches futuristic visual trends and aesthetics
-- Analyzes color palettes and typography styles
-- Compiles AI image generation prompts for each theme
-- Provides data-driven insights for creative decisions
-- Studies current video editing techniques and tools
+- **Detects video scenes** and segments
+- **Generates AI-enhanced visuals** for each segment
+- **Applies futuristic text overlays** and effects
+- **Coordinates multiple agents** for optimal results
+- **Exports optimized video segments** ready for distribution
 
-**Example Response**:
-```
-"I've researched five distinct future aesthetics we can use. Each has 
-unique color palettes, typography styles, and visual motifs. I'm also 
-compiling AI image prompts for each theme..."
-```
+## ⚡ Quick Start
 
-### 🎨 Epsilon (Ε) - Creative Director
-**Role**: Handles all creative aspects of video production
-- Develops visual treatment plans and mood boards
-- Creates thematic concepts for each video segment
-- Designs text animations and visual effects
-- Ensures artistic cohesion across all segments
-- Manages AI image generation and integration
+### Basic Video Processing
 
-**Example Response**:
-```
-"This is exciting! I envision each 60-second segment as a window into 
-a different future - cyberpunk cities, green utopias, cosmic journeys. 
-Let me create a visual treatment plan..."
+```python
+from modules.video_processing import VideoProcessor
+
+# Initialize processor
+processor = VideoProcessor()
+
+# Process a video with default settings
+processor.process_video(
+    input_path="input.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk"
+)
 ```
 
-### 💻 Zeta (Ζ) - Code Architect
-**Role**: Implements technical solutions and automation
-- Designs video processing pipelines
-- Implements scene detection and segmentation
-- Creates automation for AI image integration
-- Handles technical challenges and debugging
-- Ensures code quality and maintainability
+### Using the Demo Workflow
 
-**Example Response**:
-```
-"I'm architecting an automated pipeline. With MoviePy and async processing, 
-we can handle scene detection, segmentation, AI image integration, and 
-text overlays efficiently. Here's the code structure..."
+```python
+# Use the full collaborative workflow
+from demo_video_workflow import create_futuristic_remix
+
+# Create AI-enhanced video segments
+result = create_futuristic_remix("your_video.mp4")
+print(f"Created {len(result)} segments")
 ```
 
-### ⚡ Delta (Δ) - Task Optimizer
-**Role**: Optimizes workflows and resource usage
-- Creates efficient workflow sequences
-- Optimizes resource usage and timing
-- Identifies bottlenecks and improvements
-- Ensures smooth project execution
-- Manages parallel processing opportunities
+### Command Line Usage
 
-**Example Response**:
-```
-"I've optimized the workflow to run in parallel where possible. Estimated 
-time: 45 minutes total. We'll process AI image generation while analyzing 
-scenes, then batch apply effects..."
-```
-
-### 📊 Eta (Η) - Evolution Engineer
-**Role**: Monitors performance and drives improvements
-- Monitors system performance and resource usage
-- Identifies capability gaps and improvements
-- Learns from projects for future enhancements
-- Provides optimization recommendations
-- Tracks performance metrics
-
-**Example Response**:
-```
-"I've learned from this workflow and identified three improvements for 
-next time. Shall I implement them now?"
-```
-
-### 📚 Gamma (Γ) - Knowledge Manager
-**Role**: Documents and organizes project knowledge
-- Documents workflows and techniques used
-- Creates Zettelkasten entries for future reference
-- Organizes project insights and learnings
-- Builds connections to related knowledge
-- Maintains knowledge base for future projects
-
-**Example Response**:
-```
-"I've documented this entire process in the Zettelkasten for future 
-reference. Tagged under #video-automation and #creative-workflows."
-```
-
-## Complete Workflow Example
-
-Here's how the conversation would flow in your B3 system:
-
-### Phase 1: Project Initiation
-**User**: "I have a raw 23 min video which needs to be cut into 60 second segments and remixed thematically with texts and AI generated images about the future."
-
-**Alpha**: "Fascinating project! I'll coordinate the team for this creative endeavor. We'll need Epsilon for creative direction, Beta for future theme research, Zeta for technical implementation, and Delta to optimize the workflow."
-
-### Phase 2: Research & Planning
-**Beta**: "I've researched five distinct future aesthetics we can use. Each has unique color palettes, typography styles, and visual motifs. I'm also compiling AI image prompts for each theme..."
-
-**Epsilon**: "This is exciting! I envision each 60-second segment as a window into a different future - cyberpunk cities, green utopias, cosmic journeys. Let me create a visual treatment plan..."
-
-### Phase 3: Technical Implementation
-**Zeta**: "I'm architecting an automated pipeline. With MoviePy and async processing, we can handle scene detection, segmentation, AI image integration, and text overlays efficiently. Here's the code structure..."
-
-**Delta**: "I've optimized the workflow to run in parallel where possible. Estimated time: 45 minutes total. We'll process AI image generation while analyzing scenes, then batch apply effects..."
-
-### Phase 4: Processing & Creation
-**Epsilon**: "Segment 1 complete! The neon cyberpunk aesthetic really pops with that cyan text overlay. Moving to segment 2 with solarpunk theme..."
-
-### Phase 5: Completion & Documentation
-**Alpha**: "Project complete! We've created 23 unique 60-second videos, each with its own futuristic theme, AI-generated imagery, and dynamic text. They're ready for your review."
-
-**Eta**: "I've learned from this workflow and identified three improvements for next time. Shall I implement them now?"
-
-**Gamma**: "I've documented this entire process in the Zettelkasten for future reference. Tagged under #video-automation and #creative-workflows."
-
-## Technical Implementation
-
-### Video Processing Pipeline
-
-The B3 system includes a comprehensive video processing module that supports:
-
-1. **Scene Detection**: Automatic detection of scene changes using SceneDetect
-2. **Segmentation**: Creation of 60-second segments with smooth cuts
-3. **AI Image Integration**: Overlay of AI-generated images with opacity control
-4. **Text Overlays**: Themed text animations with futuristic styling
-5. **Effects**: Glitch transitions, color effects, and visual enhancements
-6. **Export**: Optimized export for different platforms (YouTube, Instagram, Twitter)
-
-### Futuristic Themes
-
-The system includes 5 pre-configured futuristic themes:
-
-1. **Neon Cyberpunk**: Cyan/magenta colors, glitch effects, digital rain
-2. **Green Solarpunk**: Light green/gold colors, organic growth effects
-3. **Cosmic Voyage**: Deep purple/silver colors, star field effects
-4. **AI Consciousness**: Electric blue/white colors, neural network effects
-5. **Bio Evolution**: Bioluminescent green colors, DNA helix effects
-
-### AI Image Generation
-
-Each theme includes curated AI image prompts:
-- Neon Cyberpunk: "neon holographic interface floating in rain, cyberpunk city"
-- Green Solarpunk: "vertical gardens on glass skyscrapers, sustainable city"
-- Cosmic Voyage: "spiral galaxy with nebula colors, deep space"
-- AI Consciousness: "neural network visualization, synapses firing"
-- Bio Evolution: "DNA helix transforming into tree of life, bioluminescent"
-
-## Installation & Setup
-
-### 1. Install Video Dependencies
 ```bash
-pip install moviepy scenedetect pillow numpy
+# Process video from command line
+python demo_video_workflow.py --input video.mp4 --theme neon_cyberpunk
+
+# Or use the video processor directly
+python -c "
+from modules.video_processing import VideoProcessor
+processor = VideoProcessor()
+processor.process_video('input.mp4', 'output/', 'neon_cyberpunk')
+"
 ```
 
-### 2. Configure B3 System
-The system automatically detects available video processing libraries and adapts accordingly.
+## 🎨 Available Themes
 
-### 3. Run Video Workflow
-```bash
-python -m B3PersonalAssistant --video-edit input.mp4
+### neon_cyberpunk
+Futuristic neon aesthetics with cyberpunk elements.
+
+```python
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    segment_duration=60
+)
 ```
 
-## Agent Communication
+**Features:**
+- Neon cyan and magenta color scheme
+- Glitch effects and digital artifacts
+- Futuristic typography
+- Cyberpunk-inspired overlays
 
-The B3 system uses an advanced orchestrator that enables:
+### green_solarpunk
+Eco-friendly, organic themes with sustainable aesthetics.
 
-- **Intent Analysis**: Automatically determines which agents are needed
-- **Load Balancing**: Distributes tasks efficiently across agents
-- **Multi-step Coordination**: Handles complex workflows with multiple phases
-- **Result Aggregation**: Combines responses from multiple agents
-- **Error Handling**: Graceful fallback when agents are unavailable
-
-## Workflow Optimization
-
-The system includes several optimization features:
-
-- **Parallel Processing**: AI image generation runs while analyzing scenes
-- **Batch Operations**: Multiple segments processed simultaneously
-- **Resource Monitoring**: Tracks CPU, memory, and GPU usage
-- **Performance Learning**: Eta agent learns from each project to improve future workflows
-- **Knowledge Accumulation**: Gamma agent builds a knowledge base for future reference
-
-## Example Output
-
-For a 23-minute video, the system would create approximately 23 segments:
-
-```
-output_segments/
-├── segment_01_neon_cyberpunk.mp4
-├── segment_02_green_solarpunk.mp4
-├── segment_03_cosmic_voyage.mp4
-├── segment_04_ai_consciousness.mp4
-├── segment_05_bio_evolution.mp4
-├── segment_06_neon_cyberpunk.mp4
-└── ... (continues for all segments)
+```python
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="green_solarpunk",
+    segment_duration=60
+)
 ```
 
-Each segment includes:
-- 60 seconds of original video content
-- AI-generated image overlays matching the theme
-- Futuristic text overlays with animations
-- Theme-specific visual effects
-- Optimized audio and video quality
+**Features:**
+- Natural green and gold color palette
+- Organic, flowing effects
+- Sustainable design elements
+- Nature-inspired overlays
 
-## Future Enhancements
+### blue_tech
+Clean, professional tech look suitable for business content.
 
-The B3 system is designed to evolve and improve:
+```python
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="blue_tech",
+    segment_duration=60
+)
+```
 
-- **AI Image Integration**: Direct integration with DALL-E, Midjourney, or Stable Diffusion
-- **Advanced Effects**: More sophisticated visual effects and transitions
-- **Real-time Processing**: Live video processing capabilities
-- **Cloud Integration**: Distributed processing across multiple machines
-- **Custom Themes**: User-defined themes and effects
+**Features:**
+- Professional blue and white scheme
+- Clean, minimal effects
+- Corporate-friendly aesthetics
+- Modern typography
 
-## Conclusion
+### purple_mystic
+Mystical, ethereal effects with magical elements.
 
-The B3 Personal Assistant system is specifically designed to support the kind of collaborative video editing workflow you described. All 7 agents work together seamlessly to create professional-quality video content with AI-generated imagery, futuristic effects, and thematic consistency.
+```python
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="purple_mystic",
+    segment_duration=60
+)
+```
 
-The system combines the creative vision of human-like agents with the technical precision of automated video processing, resulting in a powerful tool for content creation that can handle complex projects efficiently and produce high-quality results.
+**Features:**
+- Purple and gold mystical palette
+- Ethereal, magical effects
+- Mystical symbols and overlays
+- Dreamlike aesthetics
+
+### custom
+Create your own theme with custom configuration.
+
+```python
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="custom",
+    custom_config={
+        "colors": ["red", "orange", "yellow"],
+        "effects": ["fire", "explosion"],
+        "text_style": "action",
+        "segment_duration": 30,
+        "fps": 30
+    }
+)
+```
+
+## 🚀 Advanced Features
+
+### Custom Configuration
+
+```python
+# Advanced video processing with custom settings
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="custom",
+    custom_config={
+        "colors": ["cyan", "magenta", "yellow"],
+        "effects": ["glitch", "neon", "pulse"],
+        "text_style": "futuristic",
+        "segment_duration": 30,
+        "fps": 30,
+        "resolution": "1920x1080",
+        "quality": "high"
+    }
+)
+```
+
+### Scene Detection
+
+```python
+# Detect scenes in video
+scenes = processor.detect_scenes("input.mp4")
+print(f"Detected {len(scenes)} scenes")
+
+# Process with custom scene detection
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    scene_detection=True,
+    min_scene_duration=5
+)
+```
+
+### Text Overlay Generation
+
+```python
+# Generate custom text overlays
+overlay = processor.generate_overlay(
+    text="FUTURE IS NOW",
+    theme="neon_cyberpunk",
+    position="center",
+    duration=3
+)
+
+# Apply overlay to video
+processor.apply_overlay("video.mp4", overlay, "output_with_overlay.mp4")
+```
+
+### Effect Application
+
+```python
+# Apply custom effects
+effects = ["glitch", "neon", "pulse", "zoom"]
+processor.apply_effects("input.mp4", effects, "output_with_effects.mp4")
+
+# Custom effect parameters
+custom_effects = {
+    "glitch": {"intensity": 0.5, "frequency": 0.1},
+    "neon": {"color": "cyan", "blur": 2.0},
+    "pulse": {"speed": 1.5, "amplitude": 0.2}
+}
+```
+
+## 🤖 Collaborative Workflow
+
+### Multi-Agent Video Processing
+
+The system uses multiple agents to handle different aspects of video processing:
+
+```python
+# Full collaborative workflow
+from demo_video_workflow import create_futuristic_remix
+
+# This workflow involves:
+# 1. Alpha coordinates the project
+# 2. Beta researches video themes and trends
+# 3. Gamma organizes video metadata and descriptions
+# 4. Delta manages the processing timeline
+# 5. Epsilon handles creative aspects and visual design
+# 6. Zeta manages technical implementation
+# 7. Eta monitors performance and optimizes the process
+
+result = create_futuristic_remix("input_video.mp4")
+```
+
+### Agent Responsibilities
+
+| Agent | Role in Video Processing |
+|-------|-------------------------|
+| **Alpha** | Project coordination and workflow management |
+| **Beta** | Research video trends, themes, and best practices |
+| **Gamma** | Organize video metadata, descriptions, and tags |
+| **Delta** | Manage processing timeline and task scheduling |
+| **Epsilon** | Creative direction, visual design, and theme selection |
+| **Zeta** | Technical implementation and optimization |
+| **Eta** | Performance monitoring and system improvement |
+
+### Workflow Example
+
+```python
+# Step-by-step collaborative workflow
+def collaborative_video_processing(video_path, theme):
+    """Complete collaborative video processing workflow"""
+    
+    # 1. Alpha coordinates the project
+    alpha = orchestrator.get_agent("alpha")
+    project_plan = alpha.coordinate_project("video_processing", video_path)
+    
+    # 2. Beta researches themes and trends
+    beta = orchestrator.get_agent("beta")
+    research = beta.research(f"{theme} video effects trends")
+    
+    # 3. Gamma organizes information
+    gamma = orchestrator.get_agent("gamma")
+    metadata = gamma.organize_video_metadata(video_path, research)
+    
+    # 4. Delta creates processing timeline
+    delta = orchestrator.get_agent("delta")
+    timeline = delta.create_processing_timeline(metadata)
+    
+    # 5. Epsilon handles creative direction
+    epsilon = orchestrator.get_agent("epsilon")
+    creative_plan = epsilon.design_visual_treatment(theme, research)
+    
+    # 6. Zeta implements technical solution
+    zeta = orchestrator.get_agent("zeta")
+    technical_spec = zeta.optimize_processing_pipeline(creative_plan)
+    
+    # 7. Eta monitors and optimizes
+    eta = orchestrator.get_agent("eta")
+    eta.monitor_performance("video_processing")
+    
+    # Execute the processing
+    return processor.process_video(
+        input_path=video_path,
+        output_dir="output/",
+        theme=theme,
+        creative_plan=creative_plan,
+        technical_spec=technical_spec
+    )
+```
+
+## 🎛️ Customization
+
+### Creating Custom Themes
+
+```python
+# Define custom theme
+custom_theme = {
+    "name": "my_custom_theme",
+    "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1"],
+    "effects": ["wave", "ripple", "glow"],
+    "text_style": "modern",
+    "overlay_style": "minimal",
+    "segment_duration": 45,
+    "fps": 30
+}
+
+# Register custom theme
+processor.register_theme(custom_theme)
+
+# Use custom theme
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="my_custom_theme"
+)
+```
+
+### Custom Effect Functions
+
+```python
+# Define custom effect
+def custom_effect(video_clip, parameters):
+    """Custom video effect"""
+    # Apply custom processing
+    processed_clip = video_clip.fx(
+        lambda c: c.set_fps(parameters.get("fps", 30))
+    )
+    return processed_clip
+
+# Register custom effect
+processor.register_effect("custom_effect", custom_effect)
+
+# Use custom effect
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="custom",
+    custom_config={
+        "effects": ["custom_effect"],
+        "custom_effect_params": {"fps": 60}
+    }
+)
+```
+
+### Batch Processing
+
+```python
+# Process multiple videos
+videos = ["video1.mp4", "video2.mp4", "video3.mp4"]
+themes = ["neon_cyberpunk", "green_solarpunk", "blue_tech"]
+
+for video, theme in zip(videos, themes):
+    processor.process_video(
+        input_path=video,
+        output_dir=f"output/{theme}/",
+        theme=theme
+    )
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **FFmpeg not found** | Install FFmpeg: `sudo apt install ffmpeg` |
+| **Memory errors** | Reduce video resolution or segment duration |
+| **Slow processing** | Use smaller video files or lower quality settings |
+| **Import errors** | Install dependencies: `pip install moviepy pillow` |
+| **Permission errors** | Check file permissions and output directory access |
+
+### Performance Optimization
+
+```python
+# Optimize for performance
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    # Performance settings
+    segment_duration=30,  # Shorter segments
+    fps=24,              # Lower FPS
+    resolution="1280x720", # Lower resolution
+    quality="medium"     # Medium quality
+)
+```
+
+### Debug Mode
+
+```python
+# Enable debug mode for troubleshooting
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Process with debug output
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    debug=True
+)
+```
+
+### System Requirements
+
+**Minimum Requirements:**
+- **CPU**: 4+ cores
+- **RAM**: 8GB+
+- **Storage**: 10GB+ free space
+- **FFmpeg**: Installed and accessible
+
+**Recommended Requirements:**
+- **CPU**: 8+ cores
+- **RAM**: 16GB+
+- **Storage**: 50GB+ free space
+- **GPU**: CUDA-compatible (optional, for acceleration)
+
+## 📊 Output Formats
+
+### Supported Formats
+
+- **Input**: MP4, AVI, MOV, MKV, WMV
+- **Output**: MP4 (H.264), AVI, MOV
+- **Audio**: MP3, AAC, WAV
+- **Image**: PNG, JPG, GIF
+
+### Quality Settings
+
+```python
+# High quality output
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    quality="high",
+    resolution="1920x1080",
+    fps=30
+)
+
+# Optimized for web
+processor.process_video(
+    input_path="video.mp4",
+    output_dir="output/",
+    theme="neon_cyberpunk",
+    quality="web",
+    resolution="1280x720",
+    fps=24
+)
+```
+
+## 🚀 Advanced Examples
+
+### Video with Knowledge Integration
+
+```python
+from modules.knowledge import KnowledgeManager
+
+def create_video_with_knowledge(video_path, topic):
+    """Create video with knowledge integration"""
+    
+    # Get knowledge about topic
+    knowledge = KnowledgeManager()
+    notes = knowledge.search(topic)
+    
+    # Process video with knowledge context
+    processor = VideoProcessor()
+    result = processor.process_video(
+        input_path=video_path,
+        output_dir="output/",
+        theme="neon_cyberpunk",
+        knowledge_context=notes
+    )
+    
+    return result
+
+# Usage
+result = create_video_with_knowledge("ai_video.mp4", "artificial intelligence")
+```
+
+### Automated Video Pipeline
+
+```python
+import os
+from pathlib import Path
+
+def automated_video_pipeline(input_dir, output_dir):
+    """Automated video processing pipeline"""
+    
+    processor = VideoProcessor()
+    themes = ["neon_cyberpunk", "green_solarpunk", "blue_tech"]
+    
+    # Process all videos in directory
+    for video_file in Path(input_dir).glob("*.mp4"):
+        # Select theme based on filename
+        theme = themes[hash(str(video_file)) % len(themes)]
+        
+        # Process video
+        processor.process_video(
+            input_path=str(video_file),
+            output_dir=f"{output_dir}/{theme}/",
+            theme=theme
+        )
+
+# Usage
+automated_video_pipeline("input_videos/", "processed_videos/")
+```
 
 ---
 
-*This guide demonstrates how the B3 system can transform your video editing workflow from a manual, time-consuming process into an automated, collaborative, and creative experience.* 
+**Ready to create stunning AI-enhanced videos? Start with the [Quick Start Guide](QUICK_START.md) or explore the [User Guide](USER_GUIDE.md) for more advanced features.** 

@@ -552,6 +552,10 @@ class ResourceMonitor:
             lines.append(f"THROTTLING ACTIVE ({dash['throttle_reason']})")
         return "\n".join(lines)
 
+    def get_status(self):
+        """Return a basic status for testing and monitoring."""
+        return {'status': 'ok'}
+
 # Decorator for agent methods to track performance
 import functools
 

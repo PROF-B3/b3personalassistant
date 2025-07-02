@@ -12,17 +12,17 @@ __email__ = "contact@b3personalassistant.com"
 __description__ = "A multi-agent AI personal assistant system using local Ollama models"
 
 # Import main components for easy access
-from .core.config import Config
-from .core.orchestrator import AgentOrchestrator
+from core.config import ConfigManager
+# from .core.orchestrator import AgentOrchestrator
 from .core.agents import AlphaAgent, BetaAgent, GammaAgent, DeltaAgent
 
 from .modules.conversation import ConversationManager
-from .modules.knowledge import ZettelkastenManager
+# from .modules.knowledge import ZettelkastenManager
 from .modules.tasks import TaskManager
 from .modules.resources import ResourceMonitor
 
 from .interfaces.gui_launcher import launch_gui
-from .interfaces.cli_launcher import CLILauncher
+# from .interfaces.cli_launcher import CLILauncher
 
 __all__ = [
     # Version info
@@ -32,8 +32,8 @@ __all__ = [
     '__description__',
     
     # Core components
-    'Config',
-    'AgentOrchestrator',
+    'ConfigManager',
+    # 'AgentOrchestrator',
     'AlphaAgent',
     'BetaAgent', 
     'GammaAgent',
@@ -41,13 +41,13 @@ __all__ = [
     
     # Modules
     'ConversationManager',
-    'ZettelkastenManager',
+    # 'ZettelkastenManager',
     'TaskManager',
     'ResourceMonitor',
     
     # Interfaces
     'launch_gui',
-    'CLILauncher',
+    # 'CLILauncher',
 ]
 
 
@@ -82,22 +82,24 @@ def setup_assistant(config_path=None):
     
     # Load configuration
     if config_path:
-        config = Config.load_config(Path(config_path))
+        config_manager = ConfigManager(str(config_path))
+        config = config_manager.config
     else:
-        config = Config.load_config()
+        config_manager = ConfigManager()
+        config = config_manager.config
     
     # Initialize components
-    orchestrator = AgentOrchestrator(config)
-    conversation_manager = ConversationManager(config.databases_dir / "conversations")
-    zettelkasten_manager = ZettelkastenManager(config.zettelkasten_dir)
-    task_manager = TaskManager(config.databases_dir / "tasks")
-    resource_monitor = ResourceMonitor(config.databases_dir / "resources")
+    # orchestrator = AgentOrchestrator(config)
+    # conversation_manager = ConversationManager(config.databases_dir / "conversations")
+    # zettelkasten_manager = ZettelkastenManager(config.zettelkasten_dir)
+    # task_manager = TaskManager(config.databases_dir / "tasks")
+    # resource_monitor = ResourceMonitor(config.databases_dir / "resources")
     
     return {
         'config': config,
-        'orchestrator': orchestrator,
-        'conversation_manager': conversation_manager,
-        'zettelkasten_manager': zettelkasten_manager,
-        'task_manager': task_manager,
-        'resource_monitor': resource_monitor,
+        # 'orchestrator': orchestrator,
+        # 'conversation_manager': conversation_manager,
+        # 'zettelkasten_manager': zettelkasten_manager,
+        # 'task_manager': task_manager,
+        # 'resource_monitor': resource_monitor,
     } 
