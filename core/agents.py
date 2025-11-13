@@ -870,16 +870,29 @@ class GammaAgent(AgentBase):
         "Gamma processed: Create notes on machine learning 😊"
     """
     
-    def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None):
+    def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None, knowledge_manager=None):
         """
         Initialize Gamma agent with knowledge management capabilities.
-        
+
         Args:
             orchestrator: Reference to the orchestrator for agent coordination
             user_profile: User preferences and settings
             resource_monitor: Resource monitoring instance
+            knowledge_manager: KnowledgeManager instance for Zettelkasten operations
         """
         super().__init__('Gamma', orchestrator, user_profile, resource_monitor)
+
+        # Initialize Zettelkasten system
+        self.knowledge_manager = knowledge_manager
+        if self.knowledge_manager is None:
+            # Create default knowledge manager if not provided
+            from modules.knowledge import create_knowledge_system
+            self.knowledge_manager = create_knowledge_system()
+
+        # Initialize document processor for PDF/DOCX ingestion
+        from modules.document_processing import DocumentProcessor, DocumentToZettelConverter
+        self.doc_processor = DocumentProcessor()
+        self.doc_converter = DocumentToZettelConverter(ollama_client=self.ollama_client)
 
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -903,6 +916,112 @@ Your role is to help users create, organize, and connect notes in their knowledg
 Key phrases: "Let's connect this idea to", "I see a pattern between", "This relates to", "Knowledge is interconnected"
 Always help users build a meaningful, well-organized knowledge base."""
 
+    def _handle_knowledge_command(self, input_text: str) -> Optional[str]:
+        """
+        Handle direct knowledge commands for Zettelkasten operations.
+
+        Args:
+            input_text: User input text
+
+        Returns:
+            Response string if command was handled, None otherwise
+        """
+        import re
+        from pathlib import Path
+
+        input_lower = input_text.lower()
+
+        # Command: Create note
+        if any(keyword in input_lower for keyword in ['create note', 'make note', 'add note', 'new note']):
+            # Extract content after command
+            content_match = re.search(r'(?:create|make|add|new) note[:\s]+(.+)', input_text, re.IGNORECASE)
+            if content_match:
+                content = content_match.group(1).strip()
+                note_id = self.knowledge_manager.quick_note(content)
+                return f"✓ Created note {note_id}: {content[:50]}..."
+            return "Please specify what you'd like to note. Example: 'create note about quantum computing'"
+
+        # Command: Search notes
+        elif any(keyword in input_lower for keyword in ['search notes', 'find notes', 'search for']):
+            query_match = re.search(r'(?:search|find)(?: notes)?(?: for)?[:\s]+(.+)', input_text, re.IGNORECASE)
+            if query_match:
+                query = query_match.group(1).strip()
+                results = self.knowledge_manager.zettelkasten.search_zettels(query, limit=5)
+                if results:
+                    response = f"Found {len(results)} notes:\n"
+                    for zettel in results:
+                        response += f"\n• {zettel.id}: {zettel.title}\n  Tags: {', '.join(zettel.tags[:5])}\n"
+                    return response
+                return f"No notes found for '{query}'"
+            return "Please specify what to search for. Example: 'search notes for machine learning'"
+
+        # Command: Import document/PDF
+        elif any(keyword in input_lower for keyword in ['import pdf', 'import document', 'ingest pdf', 'process pdf']):
+            # Extract file path
+            path_match = re.search(r'(?:import|ingest|process)(?: pdf| document)?[:\s]+([^\s]+)', input_text, re.IGNORECASE)
+            if path_match:
+                file_path = Path(path_match.group(1).strip())
+                return self._import_document(file_path)
+            return "Please specify the file path. Example: 'import pdf /path/to/document.pdf'"
+
+        # Command: List notes by tag
+        elif 'notes with tag' in input_lower or 'tagged' in input_lower:
+            tag_match = re.search(r'(?:with tag|tagged)[:\s]+(\w+)', input_text, re.IGNORECASE)
+            if tag_match:
+                tag = tag_match.group(1).strip()
+                results = self.knowledge_manager.zettelkasten.get_zettels_by_tag(tag)
+                if results:
+                    response = f"Found {len(results)} notes tagged '{tag}':\n"
+                    for zettel in results[:10]:
+                        response += f"\n• {zettel.id}: {zettel.title}\n"
+                    return response
+                return f"No notes found with tag '{tag}'"
+            return "Please specify a tag. Example: 'show notes with tag machine-learning'"
+
+        # Command: Show statistics
+        elif any(keyword in input_lower for keyword in ['knowledge stats', 'note stats', 'zettelkasten stats']):
+            stats = self.knowledge_manager.zettelkasten.get_statistics()
+            return f"""📊 Zettelkasten Statistics:
+• Total notes: {stats['total_zettels']}
+• By category: {stats['by_category']}
+• Total tags: {stats['total_tags']}
+• Total links: {stats['total_links']}"""
+
+        # Not a direct command
+        return None
+
+    def _import_document(self, file_path: Path) -> str:
+        """Import a document into Zettelkasten."""
+        if not file_path.exists():
+            return f"❌ File not found: {file_path}"
+
+        try:
+            # Process document
+            self.logger.info(f"Processing document: {file_path}")
+            doc = self.doc_processor.process_document(file_path)
+
+            if not doc:
+                return f"❌ Failed to process {file_path}. Unsupported format or error occurred."
+
+            # Convert to Zettelkasten notes
+            notes_data = self.doc_converter.convert_to_notes(doc, strategy="single", use_ai=True)
+
+            # Create notes in Zettelkasten
+            created_ids = []
+            for note_data in notes_data:
+                note_id = self.knowledge_manager.zettelkasten.create_zettel(**note_data)
+                created_ids.append(note_id)
+
+            response = f"✓ Successfully imported {file_path.name}\n"
+            response += f"Created {len(created_ids)} note(s): {', '.join(created_ids)}\n"
+            response += f"Tags: {', '.join(doc.suggested_tags[:5])}"
+
+            return response
+
+        except Exception as e:
+            self.logger.error(f"Error importing document: {e}", exc_info=True)
+            return f"❌ Error importing document: {str(e)}"
+
     @track_agent_performance('Gamma', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
@@ -925,6 +1044,13 @@ Always help users build a meaningful, well-organized knowledge base."""
             # Store user message
             self.save_conversation('user', validated_input)
 
+            # Check if this is a direct knowledge command
+            command_response = self._handle_knowledge_command(validated_input)
+            if command_response:
+                self.save_conversation('assistant', command_response)
+                return self.adapt_to_user(command_response)
+
+            # If not a command, use AI for knowledge synthesis
             # Use complex model for knowledge synthesis
             model = COMPLEX_MODEL
 
