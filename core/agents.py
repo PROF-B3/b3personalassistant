@@ -745,13 +745,17 @@ class BetaAgent(AgentBase):
     def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None):
         """
         Initialize Beta agent with analytical capabilities.
-        
+
         Args:
             orchestrator: Reference to the orchestrator for agent coordination
             user_profile: User preferences and settings
             resource_monitor: Resource monitoring instance
         """
         super().__init__('Beta', orchestrator, user_profile, resource_monitor)
+
+        # Initialize academic search
+        from modules.academic_search import create_academic_search
+        self.academic_search = create_academic_search()
 
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -775,6 +779,81 @@ Your role is to conduct research, analyze data, identify trends, and provide com
 Key phrases: "Based on my analysis", "The data suggests", "Let me investigate", "My research shows"
 Always provide evidence-based, well-structured analysis with clear conclusions."""
 
+    def _handle_search_command(self, input_text: str) -> Optional[str]:
+        """
+        Handle academic search commands.
+
+        Args:
+            input_text: User input text
+
+        Returns:
+            Response string if command was handled, None otherwise
+        """
+        import re
+
+        input_lower = input_text.lower()
+
+        # Command: Search papers
+        if any(keyword in input_lower for keyword in ['search papers', 'search for papers', 'find papers', 'find articles']):
+            # Extract query
+            query_match = re.search(r'(?:search (?:papers|for papers|articles)|find (?:papers|articles))(?:\s+(?:on|about|for))?\s+(.+)', input_text, re.IGNORECASE)
+
+            if query_match:
+                query = query_match.group(1).strip()
+
+                # Perform search
+                papers = self.academic_search.search(query, sources=["arxiv", "crossref", "semantic_scholar"], limit=5)
+
+                if not papers:
+                    return f"📚 No papers found for '{query}'. Try different keywords."
+
+                response = f"📚 Found {len(papers)} papers for '{query}':\n\n"
+
+                for i, paper in enumerate(papers, 1):
+                    response += f"**{i}. {paper.title}**\n"
+
+                    # Authors
+                    if paper.authors:
+                        authors_str = ", ".join(paper.authors[:3])
+                        if len(paper.authors) > 3:
+                            authors_str += " et al."
+                        response += f"   Authors: {authors_str}\n"
+
+                    # Year and venue
+                    metadata = []
+                    if paper.year:
+                        metadata.append(str(paper.year))
+                    if paper.venue:
+                        metadata.append(paper.venue)
+                    if metadata:
+                        response += f"   {' | '.join(metadata)}\n"
+
+                    # Citations
+                    if paper.citation_count > 0:
+                        response += f"   Citations: {paper.citation_count}\n"
+
+                    # URL
+                    if paper.url:
+                        response += f"   URL: {paper.url}\n"
+
+                    # PDF
+                    if paper.pdf_url:
+                        response += f"   PDF: {paper.pdf_url}\n"
+
+                    # Abstract (truncated)
+                    if paper.abstract:
+                        abstract_short = paper.abstract[:200] + "..." if len(paper.abstract) > 200 else paper.abstract
+                        response += f"   Abstract: {abstract_short}\n"
+
+                    response += "\n"
+
+                return response
+
+            return "Please specify what to search for. Example: 'search papers for machine learning'"
+
+        # Not a search command
+        return None
+
     @track_agent_performance('Beta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
@@ -796,6 +875,12 @@ Always provide evidence-based, well-structured analysis with clear conclusions."
 
             # Store user message
             self.save_conversation('user', validated_input)
+
+            # Check for academic search commands
+            search_response = self._handle_search_command(validated_input)
+            if search_response:
+                self.save_conversation('assistant', search_response)
+                return self.adapt_to_user(search_response)
 
             # Use complex model for research tasks
             model = COMPLEX_MODEL
@@ -894,6 +979,10 @@ class GammaAgent(AgentBase):
         self.doc_processor = DocumentProcessor()
         self.doc_converter = DocumentToZettelConverter(ollama_client=self.ollama_client)
 
+        # Initialize citation manager
+        from modules.citation_manager import create_citation_manager
+        self.citation_manager = create_citation_manager()
+
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
         Generate Gamma-specific system prompt.
@@ -986,6 +1075,59 @@ Always help users build a meaningful, well-organized knowledge base."""
 • By category: {stats['by_category']}
 • Total tags: {stats['total_tags']}
 • Total links: {stats['total_links']}"""
+
+        # Command: Extract citation from PDF
+        elif any(keyword in input_lower for keyword in ['extract citation', 'get citation from', 'cite pdf']):
+            path_match = re.search(r'(?:from|pdf)[:\s]+([^\s]+)', input_text, re.IGNORECASE)
+            if path_match:
+                file_path = Path(path_match.group(1).strip())
+                if not file_path.exists():
+                    return f"❌ File not found: {file_path}"
+
+                citation = self.citation_manager.extract_from_pdf(file_path)
+                if citation:
+                    return f"""✓ Extracted citation:
+
+**{citation.title}**
+Authors: {', '.join(citation.authors)}
+Year: {citation.year or 'N/A'}
+Cite key: {citation.cite_key}
+
+BibTeX entry added to bibliography."""
+                return f"❌ Could not extract citation from {file_path}"
+            return "Please specify PDF path. Example: 'extract citation from paper.pdf'"
+
+        # Command: Generate bibliography
+        elif any(keyword in input_lower for keyword in ['generate bibliography', 'create bibliography', 'show bibliography']):
+            # Check for style
+            style = "apa"  # default
+            if "bibtex" in input_lower:
+                style = "bibtex"
+            elif "mla" in input_lower:
+                style = "mla"
+            elif "chicago" in input_lower:
+                style = "chicago"
+
+            bibliography = self.citation_manager.generate_bibliography(style=style)
+
+            if bibliography:
+                return f"""📚 Bibliography ({style.upper()}):\n\n{bibliography}"""
+            return "No citations in bibliography yet. Import PDFs or add citations first."
+
+        # Command: Search citations
+        elif any(keyword in input_lower for keyword in ['search citations', 'find citations', 'search refs']):
+            query_match = re.search(r'(?:search|find)(?: citations| refs)?[:\s]+(.+)', input_text, re.IGNORECASE)
+            if query_match:
+                query = query_match.group(1).strip()
+                results = self.citation_manager.search_citations(query)
+                if results:
+                    response = f"Found {len(results)} citations:\n\n"
+                    for citation in results[:5]:
+                        response += f"• [{citation.cite_key}] {citation.title}\n"
+                        response += f"  {', '.join(citation.authors[:3])}, {citation.year or 'n.d.'}\n\n"
+                    return response
+                return f"No citations found for '{query}'"
+            return "Please specify search query. Example: 'search citations for neural networks'"
 
         # Not a direct command
         return None
@@ -1435,6 +1577,10 @@ class EpsilonAgent(AgentBase):
         super().__init__('Epsilon', orchestrator, user_profile, resource_monitor)
         self.creative_tools = self._initialize_creative_tools()
 
+        # Initialize document exporter
+        from modules.document_export import create_document_exporter
+        self.doc_exporter = create_document_exporter()
+
     def _initialize_creative_tools(self):
         """
         Initialize creative tool integrations.
@@ -1496,6 +1642,8 @@ class EpsilonAgent(AgentBase):
                 handler_result = self.handle_audio_request(validated_input)
             elif any(kw in input_lower for kw in ['write', 'story', 'poem', 'script', 'blog', 'article']):
                 handler_result = self.handle_writing_request(validated_input)
+            elif any(kw in input_lower for kw in ['export to word', 'export to docx', 'export to latex', 'export chapter']):
+                handler_result = self._handle_export_request(validated_input, context)
 
             # If a handler was used, return its result
             if handler_result:
@@ -1612,6 +1760,89 @@ class EpsilonAgent(AgentBase):
             Audio processing response or guidance
         """
         return f"🎵 Epsilon: Let's make some beautiful music! For {request}:\n1. Use Audacity for editing\n2. Apply effects and filters\n3. Export in high quality\nYour audio will sound amazing!"
+
+    def _handle_export_request(self, input_text: str, context: Optional[Dict] = None) -> Optional[str]:
+        """
+        Handle document export requests.
+
+        Args:
+            input_text: User input text
+            context: Optional context with content to export
+
+        Returns:
+            Export response or None
+        """
+        import re
+        from pathlib import Path
+
+        input_lower = input_text.lower()
+
+        # Extract format
+        format_type = "word"  # default
+        if "latex" in input_lower or ".tex" in input_lower:
+            format_type = "latex"
+        elif "docx" in input_lower or "word" in input_lower:
+            format_type = "word"
+
+        # Extract output path if provided
+        path_match = re.search(r'(?:to|as)[:\s]+([^\s]+)', input_text)
+        output_path = None
+        if path_match:
+            output_path = Path(path_match.group(1).strip())
+        else:
+            # Generate default path
+            if format_type == "word":
+                output_path = Path("exported_document.docx")
+            else:
+                output_path = Path("exported_document.tex")
+
+        # Get content to export
+        content = ""
+        title = None
+        author = None
+
+        if context and 'content' in context:
+            content = context['content']
+            title = context.get('title')
+            author = context.get('author')
+        else:
+            # Try to get from the request itself
+            content_match = re.search(r'content[:\s]+(.+)', input_text, re.IGNORECASE)
+            if content_match:
+                content = content_match.group(1)
+            else:
+                return """To export, please provide content. Example:
+'export to word: # My Chapter\\n\\nThis is the introduction...'
+
+Or provide context with:
+- context['content']: The text to export
+- context['title']: Document title (optional)
+- context['author']: Author name (optional)"""
+
+        # Perform export
+        try:
+            if format_type == "word":
+                success = self.doc_exporter.export_to_word(
+                    content=content,
+                    output_path=output_path,
+                    title=title,
+                    author=author
+                )
+            else:  # latex
+                success = self.doc_exporter.export_to_latex(
+                    content=content,
+                    output_path=output_path,
+                    title=title,
+                    author=author
+                )
+
+            if success:
+                return f"✅ Successfully exported to {output_path}\nFormat: {format_type.upper()}"
+            else:
+                return f"❌ Export failed. Make sure python-docx is installed for Word export."
+
+        except Exception as e:
+            return f"❌ Export error: {str(e)}"
 
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
