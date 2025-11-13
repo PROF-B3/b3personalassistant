@@ -29,7 +29,22 @@ from pathlib import Path
 
 # Ollama Python client
 import ollama
+
+# B3 core modules
 from modules.resources import track_agent_performance, ResourceMonitor
+from core.exceptions import (
+    InputValidationError,
+    OllamaConnectionError,
+    OllamaTimeoutError,
+    CircuitBreakerOpenError
+)
+from core.validators import InputValidator
+from core.resilience import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    retry_with_backoff,
+    get_circuit_breaker
+)
 
 # Model selection for different complexity levels
 SIMPLE_MODEL = "llama3.2:3b"  # Fast, good for simple tasks
@@ -89,6 +104,18 @@ class AgentBase:
         self.resource_monitor = resource_monitor
         self.ollama_client = ollama.Client()
         self.db_path = DB_PATH
+
+        # Input validation and resilience
+        self.validator = InputValidator(max_length=10000)
+        self.circuit_breaker = get_circuit_breaker(
+            f"ollama_{self.name.lower()}",
+            CircuitBreakerConfig(
+                failure_threshold=5,
+                success_threshold=2,
+                timeout=60.0
+            )
+        )
+
         self._ensure_db()
 
     def _ensure_db(self):
@@ -345,17 +372,111 @@ class AgentBase:
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
         Generate agent-specific system prompt for Ollama.
-        
+
         This method should be overridden in subclasses to provide
         agent-specific instructions and personality.
-        
+
         Args:
             context: Optional context dictionary
-        
+
         Returns:
             System prompt string for the AI model
         """
         return f"You are {self.name}, a helpful assistant."
+
+    def check_model_availability(self, model: str) -> bool:
+        """
+        Check if a model is available in Ollama.
+
+        Args:
+            model: Model name to check
+
+        Returns:
+            True if model is available, False otherwise
+        """
+        try:
+            models = self.ollama_client.list()
+            available_models = [m['name'] for m in models.get('models', [])]
+
+            # Check exact match or partial match (llama3.2:3b matches llama3.2)
+            for available in available_models:
+                if model in available or available in model:
+                    return True
+
+            self.logger.warning(f"Model {model} not found. Available: {available_models}")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Failed to check model availability: {e}")
+            # Assume available to not block operations
+            return True
+
+    def call_ollama_with_resilience(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        timeout: float = 30.0
+    ) -> Dict[str, Any]:
+        """
+        Call Ollama API with retry logic, circuit breaker, and timeout.
+
+        This method wraps the Ollama API call with:
+        - Model availability checking
+        - Input validation
+        - Retry logic with exponential backoff
+        - Circuit breaker pattern
+        - Timeout handling
+        - Comprehensive error handling
+
+        Args:
+            model: Model name to use
+            messages: List of message dictionaries
+            timeout: Timeout in seconds
+
+        Returns:
+            Ollama API response
+
+        Raises:
+            CircuitBreakerOpenError: If circuit breaker is open
+            OllamaConnectionError: If cannot connect to Ollama
+            OllamaTimeoutError: If request times out
+            ModelNotAvailableError: If requested model is not available
+        """
+        # Check model availability (but don't block if check fails)
+        if not self.check_model_availability(model):
+            self.logger.warning(f"Model {model} may not be available, proceeding anyway")
+
+        @self.circuit_breaker.call
+        @retry_with_backoff(
+            max_attempts=3,
+            base_delay=1.0,
+            max_delay=10.0,
+            exceptions=(Exception,)
+        )
+        def _call():
+            try:
+                self.logger.debug(f"{self.name}: Calling Ollama model {model}")
+                response = self.ollama_client.chat(
+                    model=model,
+                    messages=messages,
+                    options={"timeout": timeout}
+                )
+                self.logger.debug(f"{self.name}: Ollama call successful")
+                return response
+
+            except ConnectionError as e:
+                self.logger.error(f"{self.name}: Ollama connection error: {e}")
+                raise OllamaConnectionError(f"Cannot connect to Ollama server: {e}") from e
+
+            except TimeoutError as e:
+                self.logger.error(f"{self.name}: Ollama timeout: {e}")
+                raise OllamaTimeoutError(f"Ollama request timed out after {timeout}s") from e
+
+            except Exception as e:
+                self.logger.error(f"{self.name}: Ollama error: {e}", exc_info=True)
+                raise
+
+        return _call()
 
 # --- Specialized Agents ---
 
@@ -428,11 +549,14 @@ Always provide clear, confident, and well-structured responses."""
             Coordinated response from Alpha and other agents
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message in conversation history
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Determine complexity and select appropriate model
-            complexity = self.estimate_complexity(input_data)
+            complexity = self.estimate_complexity(validated_input)
             model = COMPLEX_MODEL if complexity == "complex" else SIMPLE_MODEL
 
             # Get conversation context for better responses
@@ -451,13 +575,14 @@ Always provide clear, confident, and well-structured responses."""
                 })
 
             # Add current input
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
-            # Call Ollama API
+            # Call Ollama API with resilience
             self.logger.info(f"Alpha calling Ollama with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract response text
@@ -469,10 +594,22 @@ Always provide clear, confident, and well-structured responses."""
             # Adapt to user preferences
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Alpha input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Alpha circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Alpha Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Alpha act() error: {e}", exc_info=True)
             # Save error fallback
-            fallback = f"I encountered an issue processing your request: {str(e)}. Let me try to help in a different way."
+            fallback = f"I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -545,8 +682,11 @@ Always provide evidence-based, well-structured analysis with clear conclusions."
             Research findings and analysis
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Use complex model for research tasks
             model = COMPLEX_MODEL
@@ -567,13 +707,14 @@ Always provide evidence-based, well-structured analysis with clear conclusions."
                 })
 
             # Add current research query
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for research
             self.logger.info(f"Beta conducting research with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -582,9 +723,21 @@ Always provide evidence-based, well-structured analysis with clear conclusions."
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Beta input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Beta circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Beta Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Beta act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue with my research: {str(e)}. Let me provide what information I can."
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -657,8 +810,11 @@ Always help users build a meaningful, well-organized knowledge base."""
             Knowledge management response
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Use complex model for knowledge synthesis
             model = COMPLEX_MODEL
@@ -679,13 +835,14 @@ Always help users build a meaningful, well-organized knowledge base."""
                 })
 
             # Add current knowledge request
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for knowledge management
             self.logger.info(f"Gamma managing knowledge with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -694,9 +851,21 @@ Always help users build a meaningful, well-organized knowledge base."""
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Gamma input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Gamma circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Gamma Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Gamma act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue organizing knowledge: {str(e)}. Let me try a different approach."
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -769,8 +938,11 @@ Always help users stay organized and productive with clear, actionable task mana
             Task management response
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Determine complexity
             complexity = self.estimate_complexity(input_data)
@@ -792,13 +964,14 @@ Always help users stay organized and productive with clear, actionable task mana
                 })
 
             # Add current task request
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for task management
             self.logger.info(f"Delta managing tasks with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -807,9 +980,21 @@ Always help users stay organized and productive with clear, actionable task mana
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Delta input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Delta circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Delta Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Delta act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue with task management: {str(e)}. Let me help in another way."
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -893,8 +1078,11 @@ class EpsilonAgent(AgentBase):
             Creative response with artistic suggestions
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Use complex model for creative tasks
             model = COMPLEX_MODEL
@@ -918,13 +1106,14 @@ class EpsilonAgent(AgentBase):
                 })
 
             # Add current creative request
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for creative tasks
             self.logger.info(f"Epsilon creating with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -933,9 +1122,21 @@ class EpsilonAgent(AgentBase):
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Epsilon input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Epsilon circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Epsilon Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Epsilon act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue with the creative task: {str(e)}. Let's try a different creative approach!"
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -1066,8 +1267,11 @@ class ZetaAgent(AgentBase):
             Code generation or technical response
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Use complex model for code generation
             model = COMPLEX_MODEL
@@ -1091,13 +1295,14 @@ class ZetaAgent(AgentBase):
                 })
 
             # Add current code request
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for code generation
             self.logger.info(f"Zeta generating code with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -1106,9 +1311,21 @@ class ZetaAgent(AgentBase):
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Zeta input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Zeta circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Zeta Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Zeta act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue with code generation: {str(e)}. Let me try a different approach."
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
@@ -1264,8 +1481,11 @@ Always focus on measurable improvements and data-driven insights."""
             Evolution analysis or improvement response
         """
         try:
+            # Validate input
+            validated_input = self.validator.validate_and_sanitize(input_data)
+
             # Store user message
-            self.save_conversation('user', input_data)
+            self.save_conversation('user', validated_input)
 
             # Use complex model for analysis
             model = COMPLEX_MODEL
@@ -1289,13 +1509,14 @@ Always focus on measurable improvements and data-driven insights."""
                 })
 
             # Add current evolution request
-            messages.append({"role": "user", "content": input_data})
+            messages.append({"role": "user", "content": validated_input})
 
             # Call Ollama API for evolution analysis
             self.logger.info(f"Eta analyzing improvements with model: {model}")
-            response = self.ollama_client.chat(
+            response = self.call_ollama_with_resilience(
                 model=model,
-                messages=messages
+                messages=messages,
+                timeout=30.0
             )
 
             # Extract and save response
@@ -1304,9 +1525,21 @@ Always focus on measurable improvements and data-driven insights."""
 
             return self.adapt_to_user(result)
 
+        except InputValidationError as e:
+            self.logger.warning(f"Eta input validation error: {e}")
+            return f"I couldn't process your input: {str(e)}. Please try rephrasing your request."
+
+        except CircuitBreakerOpenError as e:
+            self.logger.error(f"Eta circuit breaker open: {e}")
+            return "I'm temporarily unable to process requests due to system issues. Please try again in a moment."
+
+        except (OllamaConnectionError, OllamaTimeoutError) as e:
+            self.logger.error(f"Eta Ollama error: {e}")
+            return "I'm having trouble connecting to my AI backend. Please ensure Ollama is running and try again."
+
         except Exception as e:
             self.logger.error(f"Eta act() error: {e}", exc_info=True)
-            fallback = f"I encountered an issue with the analysis: {str(e)}. Let me try a different approach to improvement."
+            fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
