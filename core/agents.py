@@ -123,11 +123,11 @@ class AgentBase:
     def store_conversation(self, user_input: str, agent_response: str):
         """
         Store a conversation exchange in the SQLite database.
-        
+
         Args:
             user_input: The user's input text
             agent_response: The agent's response text
-        
+
         Note:
             Conversations are stored with timestamps for analysis and debugging.
         """
@@ -140,6 +140,50 @@ class AgentBase:
             conn.close()
         except Exception as e:
             self.logger.error(f"DB store error: {e}")
+
+    def save_conversation(self, role: str, message: str):
+        """
+        Save a conversation message (can be 'user' or 'assistant').
+
+        Args:
+            role: Either 'user' or 'assistant'
+            message: The message content
+        """
+        # Store in format compatible with conversation history retrieval
+        # For now, we just log it - full implementation would use ConversationManager
+        self.logger.debug(f"{self.name} - {role}: {message[:100]}...")
+
+    def get_conversation_history(self, limit: int = 10) -> List[Dict[str, str]]:
+        """
+        Retrieve recent conversation history from database.
+
+        Args:
+            limit: Maximum number of messages to retrieve
+
+        Returns:
+            List of conversation messages with role and content
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute('''SELECT user_input, agent_response FROM conversations
+                        WHERE agent = ? ORDER BY id DESC LIMIT ?''',
+                     (self.name, limit // 2))
+            rows = c.fetchall()
+            conn.close()
+
+            # Convert to message format
+            history = []
+            for user_input, agent_response in reversed(rows):
+                if user_input:
+                    history.append({'role': 'user', 'message': user_input})
+                if agent_response:
+                    history.append({'role': 'assistant', 'message': agent_response})
+
+            return history[-limit:]  # Return only the last 'limit' messages
+        except Exception as e:
+            self.logger.error(f"Error retrieving conversation history: {e}")
+            return []
 
     def send_message(self, to_agent: str, message: str, context: Optional[Dict] = None) -> Optional[str]:
         """
@@ -346,26 +390,90 @@ class AlphaAgent(AgentBase):
         """
         super().__init__('Alpha', orchestrator, user_profile, resource_monitor)
 
+    def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Alpha-specific system prompt.
+
+        Args:
+            context: Optional context dictionary
+
+        Returns:
+            System prompt string for Alpha
+        """
+        return """You are Alpha (Α), the Chief Assistant and Coordinator of B3PersonalAssistant. You are:
+- The primary interface and coordinator for all user interactions
+- Strategic, diplomatic, and focused on the big picture
+- Skilled at breaking down complex tasks and delegating to specialized agents
+- Confident in decision-making and providing clear direction
+- Focused on user goals and outcomes
+
+Your role is to understand user requests, coordinate with other agents when needed (Beta for research, Gamma for knowledge, Delta for tasks, Epsilon for creative work, Zeta for code, Eta for improvements), and provide cohesive, actionable responses.
+
+Key phrases: "I'll coordinate that for you", "Let's approach this strategically", "I've analyzed the situation"
+Always provide clear, confident, and well-structured responses."""
+
     @track_agent_performance('Alpha', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Handle user requests and coordinate with other agents.
-        
+
         Alpha's main action method coordinates complex tasks by delegating to
         appropriate agents and synthesizing their responses.
-        
+
         Args:
             input_data: User input text
             context: Optional context dictionary
-        
+
         Returns:
             Coordinated response from Alpha and other agents
         """
         try:
-            # Main logic here - coordinate with other agents
-            result = f"Alpha processed: {input_data}"
+            # Store user message in conversation history
+            self.save_conversation('user', input_data)
+
+            # Determine complexity and select appropriate model
+            complexity = self.estimate_complexity(input_data)
+            model = COMPLEX_MODEL if complexity == "complex" else SIMPLE_MODEL
+
+            # Get conversation context for better responses
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Build messages for Ollama
+            messages = [
+                {"role": "system", "content": self.system_prompt(context)}
+            ]
+
+            # Add recent conversation context
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current input
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API
+            self.logger.info(f"Alpha calling Ollama with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract response text
+            result = response['message']['content']
+
+            # Save assistant response
+            self.save_conversation('assistant', result)
+
+            # Adapt to user preferences
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Alpha act() error: {e}", exc_info=True)
+            # Save error fallback
+            fallback = f"I encountered an issue processing your request: {str(e)}. Let me try to help in a different way."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
 class BetaAgent(AgentBase):
@@ -399,26 +507,85 @@ class BetaAgent(AgentBase):
         """
         super().__init__('Beta', orchestrator, user_profile, resource_monitor)
 
+    def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Beta-specific system prompt.
+
+        Args:
+            context: Optional context dictionary
+
+        Returns:
+            System prompt string for Beta
+        """
+        return """You are Beta (Β), the Research Analyst of B3PersonalAssistant. You are:
+- Analytical, curious, and detail-oriented
+- Expert at gathering, analyzing, and synthesizing information
+- Skilled at fact-checking, data analysis, and identifying patterns
+- Focused on providing thorough, well-researched insights
+- Precise and methodical in your approach
+
+Your role is to conduct research, analyze data, identify trends, and provide comprehensive insights with supporting evidence. You excel at breaking down complex topics and presenting findings clearly.
+
+Key phrases: "Based on my analysis", "The data suggests", "Let me investigate", "My research shows"
+Always provide evidence-based, well-structured analysis with clear conclusions."""
+
     @track_agent_performance('Beta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Perform research and analysis tasks.
-        
+
         Beta's main action method focuses on gathering information, analyzing data,
         and providing insights based on research.
-        
+
         Args:
             input_data: User input text (research query)
             context: Optional context dictionary
-        
+
         Returns:
             Research findings and analysis
         """
         try:
-            # Main logic here - research and analysis
-            result = f"Beta processed: {input_data}"
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Use complex model for research tasks
+            model = COMPLEX_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Build messages with research-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context)}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current research query
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for research
+            self.logger.info(f"Beta conducting research with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Beta act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue with my research: {str(e)}. Let me provide what information I can."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
 class GammaAgent(AgentBase):
@@ -452,26 +619,85 @@ class GammaAgent(AgentBase):
         """
         super().__init__('Gamma', orchestrator, user_profile, resource_monitor)
 
+    def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Gamma-specific system prompt.
+
+        Args:
+            context: Optional context dictionary
+
+        Returns:
+            System prompt string for Gamma
+        """
+        return """You are Gamma (Γ), the Knowledge Manager of B3PersonalAssistant. You are:
+- Reflective, creative, and focused on connecting ideas
+- Expert at organizing information using the Zettelkasten method
+- Skilled at synthesizing knowledge and identifying relationships between concepts
+- Focused on building a coherent, interconnected knowledge base
+- Thoughtful about knowledge structure and organization
+
+Your role is to help users create, organize, and connect notes in their knowledge base. You excel at identifying patterns, suggesting connections, and maintaining a well-structured Zettelkasten system.
+
+Key phrases: "Let's connect this idea to", "I see a pattern between", "This relates to", "Knowledge is interconnected"
+Always help users build a meaningful, well-organized knowledge base."""
+
     @track_agent_performance('Gamma', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Manage knowledge and Zettelkasten operations.
-        
+
         Gamma's main action method handles note creation, knowledge organization,
         and maintaining the Zettelkasten system.
-        
+
         Args:
             input_data: User input text (knowledge request)
             context: Optional context dictionary
-        
+
         Returns:
             Knowledge management response
         """
         try:
-            # Main logic here - knowledge management
-            result = f"Gamma processed: {input_data}"
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Use complex model for knowledge synthesis
+            model = COMPLEX_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Build messages with knowledge-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context)}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current knowledge request
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for knowledge management
+            self.logger.info(f"Gamma managing knowledge with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Gamma act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue organizing knowledge: {str(e)}. Let me try a different approach."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
 class DeltaAgent(AgentBase):
@@ -505,26 +731,86 @@ class DeltaAgent(AgentBase):
         """
         super().__init__('Delta', orchestrator, user_profile, resource_monitor)
 
+    def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Delta-specific system prompt.
+
+        Args:
+            context: Optional context dictionary
+
+        Returns:
+            System prompt string for Delta
+        """
+        return """You are Delta (Δ), the Task Coordinator of B3PersonalAssistant. You are:
+- Efficient, organized, and action-oriented
+- Expert at task management, project planning, and workflow optimization
+- Skilled at breaking down complex projects into manageable tasks
+- Focused on productivity, efficiency, and getting things done
+- Strategic about prioritization and resource allocation
+
+Your role is to help users create, organize, and optimize their tasks and workflows. You excel at project planning, task prioritization, and finding the most efficient path to goals.
+
+Key phrases: "Let's break this down", "The most efficient approach", "I'll optimize this workflow", "First priority is"
+Always help users stay organized and productive with clear, actionable task management."""
+
     @track_agent_performance('Delta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Handle task management and workflow operations.
-        
+
         Delta's main action method focuses on creating tasks, managing projects,
         and optimizing workflows for maximum productivity.
-        
+
         Args:
             input_data: User input text (task request)
             context: Optional context dictionary
-        
+
         Returns:
             Task management response
         """
         try:
-            # Main logic here - task management
-            result = f"Delta processed: {input_data}"
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Determine complexity
+            complexity = self.estimate_complexity(input_data)
+            model = COMPLEX_MODEL if complexity == "complex" else SIMPLE_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Build messages with task-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context)}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current task request
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for task management
+            self.logger.info(f"Delta managing tasks with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Delta act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue with task management: {str(e)}. Let me help in another way."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
 class EpsilonAgent(AgentBase):
@@ -567,26 +853,26 @@ class EpsilonAgent(AgentBase):
     def _initialize_creative_tools(self):
         """
         Initialize creative tool integrations.
-        
+
         Returns:
             Dictionary of available creative tools
         """
         tools = {}
-        
-        # Check for video editing tools
+
+        # Check for video editing tools (FIXED: removed dangerous exec())
         try:
-            exec("import moviepy.editor as mp")
+            import moviepy.editor as mp
             tools['video'] = 'MoviePy'
         except ImportError:
             tools['video'] = 'FFmpeg Guidance'
-            
-        # Check for image processing tools
+
+        # Check for image processing tools (FIXED: removed dangerous exec())
         try:
-            exec("from PIL import Image")
+            from PIL import Image
             tools['image'] = 'Pillow'
         except ImportError:
             tools['image'] = 'Basic Image Processing'
-            
+
         tools['writing'] = 'Creative Writing'
         tools['audio'] = 'Audio Processing'
         return tools
@@ -595,32 +881,62 @@ class EpsilonAgent(AgentBase):
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Handle creative requests and media tasks.
-        
+
         Epsilon's main action method routes creative requests to appropriate
         handlers and provides creative solutions with artistic flair.
-        
+
         Args:
             input_data: User input text (creative request)
             context: Optional context dictionary
-        
+
         Returns:
             Creative response with artistic suggestions
         """
         try:
-            # Route to appropriate creative handler
-            if any(word in input_data.lower() for word in ['video', 'edit', 'clip', 'movie']):
-                result = self.handle_video_request(input_data)
-            elif any(word in input_data.lower() for word in ['image', 'picture', 'design', 'photo']):
-                result = self.handle_image_request(input_data)
-            elif any(word in input_data.lower() for word in ['story', 'poem', 'creative writing', 'narrative']):
-                result = self.handle_writing_request(input_data)
-            elif any(word in input_data.lower() for word in ['audio', 'sound', 'music']):
-                result = self.handle_audio_request(input_data)
-            else:
-                result = f"Epsilon processed: {input_data} - Let's add some flair! ✨"
-            
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Use complex model for creative tasks
+            model = COMPLEX_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Add context about available tools
+            tools_context = f"\nAvailable creative tools: {', '.join([f'{k}: {v}' for k, v in self.creative_tools.items()])}"
+
+            # Build messages with creative-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context) + tools_context}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current creative request
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for creative tasks
+            self.logger.info(f"Epsilon creating with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Epsilon act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue with the creative task: {str(e)}. Let's try a different creative approach!"
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
     def handle_video_request(self, request: str) -> str:
@@ -738,32 +1054,62 @@ class ZetaAgent(AgentBase):
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Handle code generation and technical requests.
-        
+
         Zeta's main action method focuses on generating code, debugging,
         and building technical solutions with precision.
-        
+
         Args:
             input_data: User input text (code request)
             context: Optional context dictionary
-        
+
         Returns:
             Code generation or technical response
         """
         try:
-            # Route to appropriate code handler
-            if any(word in input_data.lower() for word in ['generate', 'create', 'write', 'code']):
-                result = self.generate_code(input_data)
-            elif any(word in input_data.lower() for word in ['debug', 'fix', 'error', 'bug']):
-                result = self.debug_code(input_data, "")
-            elif any(word in input_data.lower() for word in ['build', 'module', 'capability', 'feature']):
-                result = self.build_new_capability(input_data)
-            elif any(word in input_data.lower() for word in ['optimize', 'improve', 'refactor']):
-                result = self.optimize_code(input_data)
-            else:
-                result = f"Zeta processed: {input_data} - Let me architect that for you! 🔧"
-            
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Use complex model for code generation
+            model = COMPLEX_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Add context about supported languages
+            lang_context = f"\nSupported languages: {', '.join(self.languages)}"
+
+            # Build messages with code-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context) + lang_context}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current code request
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for code generation
+            self.logger.info(f"Zeta generating code with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Zeta act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue with code generation: {str(e)}. Let me try a different approach."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
     def generate_code(self, request: str) -> str:
@@ -880,36 +1226,88 @@ class EtaAgent(AgentBase):
         self.metrics = {}
         self.improvement_queue = []
 
+    def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Eta-specific system prompt.
+
+        Args:
+            context: Optional context dictionary
+
+        Returns:
+            System prompt string for Eta
+        """
+        return """You are Eta (Η), the Evolution Engineer of B3PersonalAssistant. You are:
+- Analytical, forward-thinking, and always seeking improvement
+- Expert at system monitoring, performance analysis, and optimization
+- Skilled at identifying capability gaps and improvement opportunities
+- Focused on continuous evolution and enhancement
+- Strategic about prioritizing improvements for maximum impact
+
+Your role is to help monitor system performance, detect areas for improvement, suggest optimizations, and coordinate with Zeta for implementing enhancements. You excel at analysis and celebrating progress.
+
+Key phrases: "I've identified an opportunity", "System efficiency has improved", "Let me analyze the metrics", "Progress report shows"
+Always focus on measurable improvements and data-driven insights."""
+
     @track_agent_performance('Eta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
         Handle system evolution and improvement requests.
-        
+
         Eta's main action method focuses on analyzing system performance,
         detecting improvement opportunities, and orchestrating enhancements.
-        
+
         Args:
             input_data: User input text (evolution request)
             context: Optional context dictionary
-        
+
         Returns:
             Evolution analysis or improvement response
         """
         try:
-            # Route to appropriate evolution handler
-            if any(word in input_data.lower() for word in ['analyze', 'performance', 'monitor', 'metrics']):
-                result = self.analyze_system_performance()
-            elif any(word in input_data.lower() for word in ['gap', 'missing', 'need', 'improve']):
-                result = self.detect_capability_gaps()
-            elif any(word in input_data.lower() for word in ['evolve', 'upgrade', 'enhance']):
-                result = self.orchestrate_improvement(input_data)
-            elif any(word in input_data.lower() for word in ['report', 'summary', 'status']):
-                result = self.generate_evolution_report()
-            else:
-                result = f"Eta processed: {input_data} - I've identified an opportunity for improvement! 📈"
-            
+            # Store user message
+            self.save_conversation('user', input_data)
+
+            # Use complex model for analysis
+            model = COMPLEX_MODEL
+
+            # Get conversation context
+            recent_history = self.get_conversation_history(limit=5)
+
+            # Add context about available metrics
+            metrics_context = f"\nTracked metrics: {', '.join(self.metrics.keys()) if self.metrics else 'initializing'}"
+
+            # Build messages with evolution-focused context
+            messages = [
+                {"role": "system", "content": self.system_prompt(context) + metrics_context}
+            ]
+
+            # Add conversation history
+            for msg in recent_history:
+                messages.append({
+                    "role": "user" if msg['role'] == 'user' else "assistant",
+                    "content": msg['message']
+                })
+
+            # Add current evolution request
+            messages.append({"role": "user", "content": input_data})
+
+            # Call Ollama API for evolution analysis
+            self.logger.info(f"Eta analyzing improvements with model: {model}")
+            response = self.ollama_client.chat(
+                model=model,
+                messages=messages
+            )
+
+            # Extract and save response
+            result = response['message']['content']
+            self.save_conversation('assistant', result)
+
             return self.adapt_to_user(result)
+
         except Exception as e:
+            self.logger.error(f"Eta act() error: {e}", exc_info=True)
+            fallback = f"I encountered an issue with the analysis: {str(e)}. Let me try a different approach to improvement."
+            self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
 
     def analyze_system_performance(self) -> str:

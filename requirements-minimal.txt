@@ -2,7 +2,7 @@
 ollama>=0.1.0,<0.2.0
 
 # Multi-agent framework
-autogen>=0.2.0,<0.3.0
+# autogen - REMOVED: not actually used in codebase
 
 # Database and data management
 sqlalchemy>=2.0.0,<3.0.0
