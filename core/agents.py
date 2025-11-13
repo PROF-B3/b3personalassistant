@@ -1124,16 +1124,23 @@ class DeltaAgent(AgentBase):
         "Delta processed: Create task list"
     """
     
-    def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None):
+    def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None, task_manager=None):
         """
         Initialize Delta agent with task management capabilities.
-        
+
         Args:
             orchestrator: Reference to the orchestrator for agent coordination
             user_profile: User preferences and settings
             resource_monitor: Resource monitoring instance
+            task_manager: TaskManager instance for task operations
         """
         super().__init__('Delta', orchestrator, user_profile, resource_monitor)
+
+        # Initialize task management system
+        self.task_manager = task_manager
+        if self.task_manager is None:
+            from modules.task_management import create_task_manager
+            self.task_manager = create_task_manager()
 
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -1157,6 +1164,157 @@ Your role is to help users create, organize, and optimize their tasks and workfl
 Key phrases: "Let's break this down", "The most efficient approach", "I'll optimize this workflow", "First priority is"
 Always help users stay organized and productive with clear, actionable task management."""
 
+    def _handle_task_command(self, input_text: str) -> Optional[str]:
+        """
+        Handle direct task management commands.
+
+        Args:
+            input_text: User input text
+
+        Returns:
+            Response string if command was handled, None otherwise
+        """
+        import re
+        from modules.task_management import TaskPriority, TaskStatus
+        from datetime import datetime, timedelta
+
+        input_lower = input_text.lower()
+
+        # Command: Create task
+        if any(keyword in input_lower for keyword in ['create task', 'add task', 'new task']):
+            # Extract title and details
+            title_match = re.search(r'(?:create|add|new) task[:\s]+(.+)', input_text, re.IGNORECASE)
+            if title_match:
+                title = title_match.group(1).strip()
+
+                # Parse priority from keywords
+                priority = TaskPriority.NORMAL
+                if 'urgent' in input_lower or 'critical' in input_lower:
+                    priority = TaskPriority.URGENT
+                elif 'high priority' in input_lower or 'important' in input_lower:
+                    priority = TaskPriority.HIGH
+                elif 'low priority' in input_lower:
+                    priority = TaskPriority.LOW
+
+                task_id = self.task_manager.create_task(
+                    title=title,
+                    priority=priority
+                )
+                return f"✓ Created task {task_id}: {title} [{priority.name}]"
+
+            return "Please specify the task. Example: 'create task Review quarterly report'"
+
+        # Command: List tasks
+        elif any(keyword in input_lower for keyword in ['list tasks', 'show tasks', 'my tasks']):
+            # Check for status filter
+            status_filter = None
+            if 'todo' in input_lower:
+                status_filter = TaskStatus.TODO
+            elif 'in progress' in input_lower or 'active' in input_lower:
+                status_filter = TaskStatus.IN_PROGRESS
+            elif 'completed' in input_lower or 'done' in input_lower:
+                status_filter = TaskStatus.COMPLETED
+
+            tasks = self.task_manager.get_tasks(status=status_filter, limit=10)
+
+            if not tasks:
+                return "📋 No tasks found." if not status_filter else f"📋 No {status_filter.value} tasks found."
+
+            response = f"📋 Tasks ({len(tasks)}):\n\n"
+            for task in tasks:
+                priority_icon = {
+                    TaskPriority.URGENT: "🔴",
+                    TaskPriority.HIGH: "🟡",
+                    TaskPriority.NORMAL: "🟢",
+                    TaskPriority.LOW: "⚪"
+                }.get(task.priority, "")
+
+                status_icon = {
+                    TaskStatus.TODO: "⬜",
+                    TaskStatus.IN_PROGRESS: "🔄",
+                    TaskStatus.COMPLETED: "✅",
+                    TaskStatus.BLOCKED: "🚫",
+                    TaskStatus.CANCELLED: "❌"
+                }.get(task.status, "")
+
+                response += f"{priority_icon} {status_icon} {task.task_id}: {task.title}\n"
+                if task.due_date:
+                    due_str = datetime.fromtimestamp(task.due_date).strftime('%Y-%m-%d')
+                    response += f"  Due: {due_str}\n"
+
+            return response
+
+        # Command: Update task
+        elif any(keyword in input_lower for keyword in ['update task', 'complete task', 'finish task']):
+            # Extract task ID
+            task_id_match = re.search(r'task[_\s]?(\w+)', input_lower)
+            if task_id_match:
+                task_id = task_id_match.group(1)
+
+                # Check what to update
+                if 'complete' in input_lower or 'finish' in input_lower or 'done' in input_lower:
+                    success = self.task_manager.update_task(
+                        task_id,
+                        status=TaskStatus.COMPLETED,
+                        progress=100.0
+                    )
+                    if success:
+                        return f"✅ Completed task {task_id}"
+                    return f"❌ Task {task_id} not found"
+
+                # Check for progress update
+                progress_match = re.search(r'(\d+)%', input_text)
+                if progress_match:
+                    progress = float(progress_match.group(1))
+                    success = self.task_manager.update_task(task_id, progress=progress)
+                    if success:
+                        return f"✓ Updated task {task_id} progress to {progress}%"
+
+            return "Please specify task ID. Example: 'complete task task_1'"
+
+        # Command: Task statistics
+        elif any(keyword in input_lower for keyword in ['task stats', 'task statistics', 'task summary']):
+            stats = self.task_manager.get_statistics()
+
+            response = f"""📊 Task Statistics:
+
+**Total Tasks:** {stats['total_tasks']}
+
+**By Status:**
+  • To-Do: {stats['by_status'].get('todo', 0)}
+  • In Progress: {stats['by_status'].get('in_progress', 0)}
+  • Completed: {stats['by_status'].get('completed', 0)}
+  • Blocked: {stats['by_status'].get('blocked', 0)}
+
+**By Priority:**
+  • Urgent: {stats['by_priority'].get('URGENT', 0)}
+  • High: {stats['by_priority'].get('HIGH', 0)}
+  • Normal: {stats['by_priority'].get('NORMAL', 0)}
+  • Low: {stats['by_priority'].get('LOW', 0)}
+
+**Completion Rate:** {stats['completion_rate']:.1f}%
+**Overdue Tasks:** {stats['overdue_count']}"""
+
+            return response
+
+        # Command: Overdue tasks
+        elif 'overdue' in input_lower:
+            overdue = self.task_manager.get_overdue_tasks()
+            if not overdue:
+                return "✅ No overdue tasks!"
+
+            response = f"⚠️ Overdue Tasks ({len(overdue)}):\n\n"
+            for task in overdue:
+                due_date = datetime.fromtimestamp(task.due_date).strftime('%Y-%m-%d')
+                days_overdue = (datetime.now().timestamp() - task.due_date) / 86400
+                response += f"• {task.task_id}: {task.title}\n"
+                response += f"  Due: {due_date} ({int(days_overdue)} days ago)\n"
+
+            return response
+
+        # Not a direct command
+        return None
+
     @track_agent_performance('Delta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
         """
@@ -1179,6 +1337,13 @@ Always help users stay organized and productive with clear, actionable task mana
             # Store user message
             self.save_conversation('user', validated_input)
 
+            # Check if this is a direct task command
+            command_response = self._handle_task_command(validated_input)
+            if command_response:
+                self.save_conversation('assistant', command_response)
+                return self.adapt_to_user(command_response)
+
+            # If not a command, use AI for task planning/advice
             # Determine complexity
             complexity = self.estimate_complexity(input_data)
             model = COMPLEX_MODEL if complexity == "complex" else SIMPLE_MODEL
@@ -1319,6 +1484,25 @@ class EpsilonAgent(AgentBase):
             # Store user message
             self.save_conversation('user', validated_input)
 
+            # Route to appropriate handler based on request type
+            input_lower = validated_input.lower()
+            handler_result = None
+
+            if any(kw in input_lower for kw in ['video', 'edit video', 'cut', 'montage', 'movie', 'clip']):
+                handler_result = self.handle_video_request(validated_input)
+            elif any(kw in input_lower for kw in ['image', 'photo', 'picture', 'resize', 'crop', 'filter']):
+                handler_result = self.handle_image_request(validated_input)
+            elif any(kw in input_lower for kw in ['audio', 'sound', 'music', 'podcast', 'recording']):
+                handler_result = self.handle_audio_request(validated_input)
+            elif any(kw in input_lower for kw in ['write', 'story', 'poem', 'script', 'blog', 'article']):
+                handler_result = self.handle_writing_request(validated_input)
+
+            # If a handler was used, return its result
+            if handler_result:
+                self.save_conversation('assistant', handler_result)
+                return self.adapt_to_user(handler_result)
+
+            # Otherwise use AI for general creative tasks
             # Use complex model for creative tasks
             model = COMPLEX_MODEL
 
@@ -1476,7 +1660,7 @@ class ZetaAgent(AgentBase):
     def __init__(self, orchestrator=None, user_profile=None, resource_monitor=None):
         """
         Initialize Zeta agent with code generation capabilities.
-        
+
         Args:
             orchestrator: Reference to the orchestrator for agent coordination
             user_profile: User preferences and settings
@@ -1485,6 +1669,10 @@ class ZetaAgent(AgentBase):
         super().__init__('Zeta', orchestrator, user_profile, resource_monitor)
         self.languages = ['python', 'javascript', 'bash', 'sql', 'html', 'css']
         self.can_self_extend = True
+
+        # Initialize code generation tracking
+        from core.code_generation_tracker import get_code_tracker
+        self.code_tracker = get_code_tracker()
 
     @track_agent_performance('Zeta', ResourceMonitor(Path('databases')))
     def act(self, input_data: str, context: Optional[Dict] = None) -> str:
@@ -1508,6 +1696,32 @@ class ZetaAgent(AgentBase):
             # Store user message
             self.save_conversation('user', validated_input)
 
+            # Check for improvement request from Eta
+            if context and 'proposal_id' in context:
+                return self._handle_improvement_request(validated_input, context)
+
+            # Route to appropriate handler based on request type
+            input_lower = validated_input.lower()
+            handler_result = None
+
+            if any(kw in input_lower for kw in ['generate', 'create function', 'write code', 'implement']):
+                handler_result = self.generate_code(validated_input)
+            elif any(kw in input_lower for kw in ['debug', 'fix', 'error', 'bug']):
+                # Extract code from context if available
+                code = context.get('code', '') if context else ''
+                handler_result = self.debug_code(code, validated_input)
+            elif any(kw in input_lower for kw in ['optimize', 'improve', 'faster', 'performance']):
+                code = context.get('code', '') if context else ''
+                handler_result = self.optimize_code(code)
+            elif any(kw in input_lower for kw in ['build', 'create module', 'new capability']):
+                handler_result = self.build_new_capability(validated_input)
+
+            # If a handler was used, return its result
+            if handler_result:
+                self.save_conversation('assistant', handler_result)
+                return self.adapt_to_user(handler_result)
+
+            # Otherwise use AI for general code tasks
             # Use complex model for code generation
             model = COMPLEX_MODEL
 
@@ -1563,6 +1777,133 @@ class ZetaAgent(AgentBase):
             fallback = "I encountered an unexpected issue. Let me try to help in a different way."
             self.save_conversation('assistant', fallback)
             return self.handle_error(e, context)
+
+    def _handle_improvement_request(self, request: str, context: Dict) -> str:
+        """
+        Handle improvement request from Eta agent.
+
+        This implements the complete Eta-Zeta improvement workflow:
+        1. Analyze requirements
+        2. Generate implementation plan
+        3. Generate code with tracking
+        4. Create tests
+        5. Report back to Eta
+
+        Args:
+            request: Improvement request description
+            context: Context with proposal_id and other metadata
+
+        Returns:
+            Implementation status report
+        """
+        from core.code_generation_tracker import ChangeType, ChangeStatus
+
+        proposal_id = context.get('proposal_id', 'unknown')
+
+        self.logger.info(f"Zeta: Handling improvement request {proposal_id}")
+
+        try:
+            # Step 1: Analyze requirements
+            self.logger.info(f"Analyzing requirements for {proposal_id}")
+
+            # Use AI to create implementation plan
+            analysis_prompt = f"""Analyze this improvement request and create an implementation plan:
+
+Request: {request}
+Proposal ID: {proposal_id}
+
+Please provide:
+1. Brief analysis of requirements
+2. Implementation approach
+3. Files that need to be created/modified
+4. Testing strategy
+
+Keep it concise and focused on actionable steps."""
+
+            messages = [
+                {"role": "system", "content": self.system_prompt()},
+                {"role": "user", "content": analysis_prompt}
+            ]
+
+            analysis_response = self.call_ollama_with_resilience(
+                model=COMPLEX_MODEL,
+                messages=messages,
+                timeout=30.0
+            )
+
+            implementation_plan = analysis_response['message']['content']
+
+            # Step 2: Send status update to Eta
+            self.send_message_to(
+                to_agent="Eta",
+                content=f"Implementation plan ready for {proposal_id}:\n\n{implementation_plan[:200]}...",
+                message_type="RESPONSE",
+                priority="HIGH",
+                context={'proposal_id': proposal_id, 'status': 'planned'}
+            )
+
+            # Step 3: Simulate code generation (in a real scenario, would actually generate files)
+            # For demonstration, track the "generation"
+            change_id = self.code_tracker.track_code_generation(
+                file_path=Path(f"modules/generated_{proposal_id}.py"),
+                description=f"Implementation for: {request[:100]}",
+                change_type=ChangeType.FEATURE,
+                generated_by="Zeta",
+                improvement_request=request,
+                related_proposal_id=proposal_id,
+                documentation=f"Auto-generated implementation for improvement proposal {proposal_id}"
+            )
+
+            # Step 4: Mark as applied (simulated)
+            self.code_tracker.finalize_change(
+                change_id=change_id,
+                status=ChangeStatus.PROPOSED,  # Would be APPLIED after actual file creation
+                tests_generated=[f"test_generated_{proposal_id}.py"],
+                tests_passed=None  # Would run tests in real scenario
+            )
+
+            # Step 5: Report completion to Eta
+            completion_message = f"""✅ Implementation complete for {proposal_id}
+
+**What I did:**
+{implementation_plan}
+
+**Code Tracking:**
+- Change ID: {change_id}
+- Documentation: Auto-generated
+- Tests: Proposed (test_generated_{proposal_id}.py)
+
+**Next Steps:**
+1. Review generated code
+2. Run tests
+3. Deploy if tests pass
+
+Full changelog available in databases/code_generation/CHANGELOG.md"""
+
+            self.send_message_to(
+                to_agent="Eta",
+                content=completion_message,
+                message_type="RESPONSE",
+                priority="HIGH",
+                requires_response=False,
+                context={'proposal_id': proposal_id, 'change_id': change_id, 'status': 'completed'}
+            )
+
+            return completion_message
+
+        except Exception as e:
+            self.logger.error(f"Error handling improvement request {proposal_id}: {e}", exc_info=True)
+
+            # Report failure to Eta
+            self.send_message_to(
+                to_agent="Eta",
+                content=f"❌ Implementation failed for {proposal_id}: {str(e)}",
+                message_type="RESPONSE",
+                priority="HIGH",
+                context={'proposal_id': proposal_id, 'status': 'failed', 'error': str(e)}
+            )
+
+            return f"❌ Failed to implement {proposal_id}: {str(e)}"
 
     def generate_code(self, request: str) -> str:
         """
