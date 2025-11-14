@@ -17,7 +17,14 @@ from PyQt6.QtCore import pyqtSignal, Qt
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from interfaces.desktop_app.widgets.video_player import VideoPlayer
+# Try to import video player (optional - requires PyQt6-Multimedia)
+try:
+    from interfaces.desktop_app.widgets.video_player import VideoPlayer
+    VIDEO_PLAYER_AVAILABLE = True
+except ImportError:
+    VIDEO_PLAYER_AVAILABLE = False
+    VideoPlayer = None
+
 from modules.video_processing import FUTURISTIC_THEMES, VideoProcessor, ProcessingConfig
 
 
@@ -65,10 +72,21 @@ class VideoPanel(QWidget):
         video_layout.setContentsMargins(0, 0, 0, 0)
         video_layout.setSpacing(4)
 
-        self.video_player = VideoPlayer()
-        self.video_player.video_loaded.connect(self._on_video_loaded)
-        self.video_player.segment_marked.connect(self._on_segment_marked)
-        video_layout.addWidget(self.video_player)
+        if VIDEO_PLAYER_AVAILABLE:
+            self.video_player = VideoPlayer()
+            self.video_player.video_loaded.connect(self._on_video_loaded)
+            self.video_player.segment_marked.connect(self._on_segment_marked)
+            video_layout.addWidget(self.video_player)
+        else:
+            # Placeholder when video player is not available
+            placeholder = QLabel("Video player unavailable\n\n"
+                                "PyQt6-Multimedia is required for video playback.\n"
+                                "Install with: pip install PyQt6-Multimedia\n\n"
+                                "(Not available for Python 3.13)")
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            placeholder.setStyleSheet("color: #888; font-size: 14px; padding: 20px;")
+            video_layout.addWidget(placeholder)
+            self.video_player = None
 
         layout.addWidget(video_container, 7)
 
@@ -178,6 +196,14 @@ class VideoPanel(QWidget):
         Returns:
             True if successful
         """
+        if not self.video_player:
+            QMessageBox.warning(
+                self,
+                "Video Player Unavailable",
+                "Video playback requires PyQt6-Multimedia, which is not available."
+            )
+            return False
+
         success = self.video_player.load_video(file_path)
         if success:
             self.current_file = file_path
@@ -190,6 +216,9 @@ class VideoPanel(QWidget):
 
     def _on_video_loaded(self, file_path: str):
         """Handle video loaded."""
+        if not self.video_player:
+            return
+
         duration_ms = self.video_player.get_duration()
         duration_s = duration_ms / 1000
 
@@ -417,6 +446,11 @@ class VideoPanel(QWidget):
             progress.show()
 
             # Get full duration
+            if not self.video_player:
+                progress.close()
+                QMessageBox.warning(self, "Error", "Video player not available.")
+                return
+
             duration_ms = self.video_player.get_duration()
             duration_s = duration_ms / 1000
 
@@ -552,6 +586,8 @@ class VideoPanel(QWidget):
 
     def get_segments(self) -> List[Tuple[int, int]]:
         """Get all marked segments."""
+        if not self.video_player:
+            return []
         return self.video_player.get_segments()
 
 
@@ -572,11 +608,20 @@ class SimpleVideoPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.video_player = VideoPlayer()
-        layout.addWidget(self.video_player)
+        if VIDEO_PLAYER_AVAILABLE:
+            self.video_player = VideoPlayer()
+            layout.addWidget(self.video_player)
+        else:
+            placeholder = QLabel("Video player unavailable\n\nPyQt6-Multimedia is required.")
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            placeholder.setStyleSheet("color: #888; font-size: 14px; padding: 20px;")
+            layout.addWidget(placeholder)
+            self.video_player = None
 
     def load_file(self, file_path: str) -> bool:
         """Load file."""
+        if not self.video_player:
+            return False
         success = self.video_player.load_video(file_path)
         if success:
             self.current_file = file_path

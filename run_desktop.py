@@ -22,14 +22,14 @@ def check_dependencies():
     except ImportError:
         missing.append("PyQt6")
 
-    # Check PyQt6-Multimedia
+    # Check optional but recommended
+    optional = []
+
+    # Check PyQt6-Multimedia (optional - not available for Python 3.13)
     try:
         import PyQt6.QtMultimedia
     except ImportError:
-        missing.append("PyQt6-Multimedia")
-
-    # Check optional but recommended
-    optional = []
+        optional.append("PyQt6-Multimedia (for video playback)")
 
     try:
         import fitz  # PyMuPDF
