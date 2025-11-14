@@ -140,22 +140,16 @@ class AgentBase:
         Raises:
             DatabaseException: If database creation fails
         """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                agent TEXT,
-                user_input TEXT,
-                agent_response TEXT,
-                timestamp TEXT
-            )''')
-            conn.commit()
-            conn.close()
-        except sqlite3.Error as e:
-            self.logger.error(f"Database initialization error for agent {self.name}: {e}")
-            from core.exceptions import DatabaseException
-            raise DatabaseException(f"Failed to initialize database for agent {self.name}: {e}") from e
+        # DEPRECATED: Table creation moved to ConversationManager (modules/conversation.py)
+        # The ConversationManager now creates a conversations table with enhanced schema:
+        # - session_id, agent_name, user_message, agent_response, timestamp, context, message_type, metadata
+        #
+        # This old schema (agent, user_input, agent_response, timestamp) is no longer used.
+        # BaseAgent methods (store_conversation, get_recent_conversations) are kept for backwards
+        # compatibility but should be migrated to use ConversationManager.
+        #
+        # TODO: Update store_conversation() and get_recent_conversations() to use ConversationManager
+        pass
 
     def store_conversation(self, user_input: str, agent_response: str):
         """
