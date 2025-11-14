@@ -19,6 +19,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from interfaces.desktop_app.utils.theme import get_stylesheet, DARK_THEME
+from interfaces.desktop_app.panels import FileTreePanel, AgentPanel
 from core.orchestrator import Orchestrator
 
 
@@ -223,18 +224,25 @@ class DesktopApp(QMainWindow):
         # Main splitter (horizontal: sidebar | workspace)
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left sidebar (will be filled by panels)
-        self.sidebar_widget = QWidget()
-        self.sidebar_layout = QVBoxLayout(self.sidebar_widget)
-        self.sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        # Left sidebar with file tree
+        sidebar_splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # Placeholder for sidebar content
-        self.sidebar_placeholder = QLabel("Sidebar\n(File tree & Agents will go here)")
-        self.sidebar_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sidebar_placeholder.setStyleSheet("color: #858585; padding: 20px;")
-        self.sidebar_layout.addWidget(self.sidebar_placeholder)
+        # File tree panel
+        self.file_tree = FileTreePanel()
+        self.file_tree.file_opened.connect(self._on_file_opened_from_tree)
+        self.file_tree.files_imported.connect(self._on_files_imported)
+        sidebar_splitter.addWidget(self.file_tree)
 
-        self.main_splitter.addWidget(self.sidebar_widget)
+        # Compact agent selector (will show in sidebar)
+        from interfaces.desktop_app.panels.agent_panel import CompactAgentPanel
+        self.compact_agents = CompactAgentPanel()
+        self.compact_agents.agent_selected.connect(self._on_agent_selected_sidebar)
+        sidebar_splitter.addWidget(self.compact_agents)
+
+        # Set splitter proportions (70% files, 30% agents)
+        sidebar_splitter.setSizes([700, 300])
+
+        self.main_splitter.addWidget(sidebar_splitter)
 
         # Right area: workspace + chat splitter (vertical)
         right_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -253,17 +261,11 @@ class DesktopApp(QMainWindow):
         right_splitter.addWidget(self.workspace_widget)
 
         # Agent chat panel
-        self.chat_widget = QWidget()
-        self.chat_layout = QVBoxLayout(self.chat_widget)
-        self.chat_layout.setContentsMargins(8, 8, 8, 8)
+        self.agent_chat = AgentPanel(self.orchestrator)
+        self.agent_chat.message_sent.connect(self._on_agent_message_sent)
+        self.agent_chat.response_received.connect(self._on_agent_response_received)
 
-        # Placeholder for chat
-        self.chat_placeholder = QLabel("AI Agent Chat\n(Agent chat panel will go here)")
-        self.chat_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.chat_placeholder.setStyleSheet("color: #858585;")
-        self.chat_layout.addWidget(self.chat_placeholder)
-
-        right_splitter.addWidget(self.chat_widget)
+        right_splitter.addWidget(self.agent_chat)
 
         # Set splitter proportions
         right_splitter.setSizes([700, 300])  # 70% workspace, 30% chat
@@ -351,20 +353,23 @@ class DesktopApp(QMainWindow):
     def _on_mode_changed(self, mode: str):
         """Handle mode changed signal."""
         self.status_label.setText(f"Switched to {mode.title()} mode")
+        # Update agent panel for mode
+        self.agent_chat.update_for_mode(mode)
         # Update workspace based on mode
-        # (Will be implemented when panels are added)
+        # (Will be implemented when mode-specific panels are added)
 
     def _toggle_sidebar(self):
         """Toggle sidebar visibility."""
-        self.sidebar_widget.setVisible(not self.sidebar_widget.isVisible())
+        sidebar = self.main_splitter.widget(0)
+        sidebar.setVisible(not sidebar.isVisible())
 
     def _toggle_chat_panel(self):
         """Toggle chat panel visibility."""
-        self.chat_widget.setVisible(not self.chat_widget.isVisible())
+        self.agent_chat.setVisible(not self.agent_chat.isVisible())
 
     def _focus_chat(self):
         """Focus the chat input."""
-        # Will be implemented when chat panel is added
+        self.agent_chat.focus_input()
         self.status_label.setText("Chat focused")
 
     # File operations
@@ -499,6 +504,49 @@ class DesktopApp(QMainWindow):
             <p>Ctrl+K - Cut Segment</p>
             """
         )
+
+    # File tree callbacks
+    def _on_file_opened_from_tree(self, file_path: str):
+        """Handle file opened from tree."""
+        self.current_file = file_path
+        self.file_status.setText(Path(file_path).name)
+        self.file_opened.emit(file_path)
+        self._auto_switch_mode(file_path)
+        self.status_label.setText(f"Opened: {Path(file_path).name}")
+
+    def _on_files_imported(self, file_paths: list):
+        """Handle files imported via drag-and-drop."""
+        count = len(file_paths)
+        self.status_label.setText(f"Imported {count} file(s)")
+
+        # Open first file if only one
+        if count == 1:
+            self._on_file_opened_from_tree(file_paths[0])
+        else:
+            QMessageBox.information(
+                self,
+                "Files Imported",
+                f"Successfully imported {count} files."
+            )
+
+    # Agent panel callbacks
+    def _on_agent_selected_sidebar(self, agent_name: str):
+        """Handle agent selected from sidebar."""
+        # Find and select agent in chat panel
+        for i in range(self.agent_chat.agent_selector.count()):
+            if self.agent_chat.agent_selector.itemText(i).startswith(agent_name):
+                self.agent_chat.agent_selector.setCurrentIndex(i)
+                break
+
+        self.agent_status.setText(f"Agent: {agent_name}")
+
+    def _on_agent_message_sent(self, agent: str, message: str):
+        """Handle message sent to agent."""
+        self.status_label.setText(f"Processing with {agent}...")
+
+    def _on_agent_response_received(self, agent: str, response: str):
+        """Handle response received from agent."""
+        self.status_label.setText(f"Response from {agent}")
 
 
 def launch_desktop_app(user_profile: Optional[Dict] = None, config: Optional[Any] = None):
