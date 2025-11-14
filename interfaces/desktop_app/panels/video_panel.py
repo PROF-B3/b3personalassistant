@@ -326,14 +326,56 @@ class VideoPanel(QWidget):
         # Get segment times from item text
         # Format: "10.50s - 25.30s (14.80s)"
         item_text = current_item.text()
-        # Would parse and export segment here
 
-        QMessageBox.information(
-            self,
-            "Export Segment",
-            f"Segment will be exported to:\n{file_path}\n\n"
-            "(Not yet implemented - requires MoviePy integration)"
-        )
+        try:
+            # Parse times from text
+            import re
+            match = re.match(r"([\d.]+)s - ([\d.]+)s", item_text)
+            if not match:
+                QMessageBox.warning(self, "Error", "Could not parse segment times")
+                return
+
+            start_time = float(match.group(1))
+            end_time = float(match.group(2))
+
+            # Get selected theme
+            theme_name = self.theme_combo.currentText()
+
+            # Export with progress message
+            from PyQt6.QtWidgets import QProgressDialog
+            progress = QProgressDialog("Exporting segment...", "Cancel", 0, 0, self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.show()
+
+            # Export segment
+            success = self.video_processor.export_segment(
+                start_time,
+                end_time,
+                file_path,
+                theme=theme_name
+            )
+
+            progress.close()
+
+            if success:
+                QMessageBox.information(
+                    self,
+                    "Export Complete",
+                    f"Segment exported successfully to:\n{file_path}"
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Export Failed",
+                    "Failed to export segment. Check logs for details."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to export segment:\n{str(e)}"
+            )
 
     def _delete_segment(self):
         """Delete selected segment."""
@@ -342,7 +384,7 @@ class VideoPanel(QWidget):
             self.segments_list.takeItem(current_row)
 
     def _export_full_video(self):
-        """Export full video."""
+        """Export full video with theme applied."""
         if not self.current_file:
             QMessageBox.warning(
                 self,
@@ -364,14 +406,50 @@ class VideoPanel(QWidget):
         if not file_path.endswith('.mp4'):
             file_path += '.mp4'
 
-        self.export_requested.emit("mp4", file_path)
+        try:
+            # Get selected theme
+            theme_name = self.theme_combo.currentText()
 
-        QMessageBox.information(
-            self,
-            "Export Video",
-            f"Video will be exported to:\n{file_path}\n\n"
-            "(Not yet implemented - requires MoviePy integration)"
-        )
+            # Export with progress message
+            from PyQt6.QtWidgets import QProgressDialog
+            progress = QProgressDialog("Exporting video with theme...", "Cancel", 0, 0, self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.show()
+
+            # Get full duration
+            duration_ms = self.video_player.get_duration()
+            duration_s = duration_ms / 1000
+
+            # Export full video with theme
+            success = self.video_processor.export_segment(
+                0.0,
+                duration_s,
+                file_path,
+                theme=theme_name
+            )
+
+            progress.close()
+
+            if success:
+                self.export_requested.emit("mp4", file_path)
+                QMessageBox.information(
+                    self,
+                    "Export Complete",
+                    f"Video exported successfully with '{theme_name}' theme to:\n{file_path}"
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Export Failed",
+                    "Failed to export video. Check logs for details."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to export video:\n{str(e)}"
+            )
 
     def _create_remix(self):
         """Create futuristic remix of video."""
@@ -404,34 +482,62 @@ class VideoPanel(QWidget):
         try:
             theme_name = self.theme_combo.currentText()
 
-            msg = f"Creating futuristic remix with theme '{theme_name}'...\n\n"
+            msg = f"Creating futuristic remix...\n\n"
             msg += "This will:\n"
-            msg += "1. Segment the video\n"
-            msg += "2. Generate AI images\n"
-            msg += "3. Apply theme effects\n"
-            msg += "4. Export segments\n\n"
-            msg += "This may take several minutes."
+            msg += "1. Detect or create video segments\n"
+            msg += "2. Generate AI-styled gradient images\n"
+            msg += "3. Apply theme color grading and effects\n"
+            msg += "4. Add text overlays with theme fonts\n"
+            msg += "5. Composite images over video\n"
+            msg += "6. Export all segments\n\n"
+            msg += "This may take several minutes depending on video length.\n"
+            msg += f"Theme: {theme_name.replace('_', ' ').title()}\n\n"
+            msg += "Continue?"
 
             reply = QMessageBox.question(
                 self,
-                "Create Remix",
+                "Create Futuristic Remix",
                 msg,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 
             if reply == QMessageBox.StandardButton.Yes:
-                # Would create remix here
-                # output_files = self.video_processor.create_futuristic_remix(
-                #     self.current_file,
-                #     output_dir
-                # )
+                # Create remix with progress dialog
+                from PyQt6.QtWidgets import QProgressDialog
+                progress = QProgressDialog("Creating futuristic remix...", "Cancel", 0, 0, self)
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.show()
 
-                QMessageBox.information(
-                    self,
-                    "Remix Created",
-                    f"Futuristic remix will be created in:\n{output_dir}\n\n"
-                    "(Not yet fully implemented - framework in place)"
+                # Create the remix
+                output_files = self.video_processor.create_futuristic_remix(
+                    self.current_file,
+                    output_dir,
+                    apply_effects=True,
+                    add_overlays=True
                 )
+
+                progress.close()
+
+                if output_files:
+                    msg = f"Futuristic remix created successfully!\n\n"
+                    msg += f"Created {len(output_files)} segments in:\n{output_dir}\n\n"
+                    msg += "Segments:\n"
+                    for file in output_files[:5]:  # Show first 5
+                        msg += f"  • {Path(file).name}\n"
+                    if len(output_files) > 5:
+                        msg += f"  ... and {len(output_files) - 5} more\n"
+
+                    QMessageBox.information(
+                        self,
+                        "Remix Complete",
+                        msg
+                    )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Remix Failed",
+                        "Failed to create remix. Check logs for details."
+                    )
 
         except Exception as e:
             QMessageBox.critical(

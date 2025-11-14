@@ -230,71 +230,708 @@ class VideoProcessor:
         self.logger.info(f"Created {len(segments)} segments")
         return segments
     
+    def export_segment(self, start_time: float, end_time: float,
+                      output_path: str, theme: Optional[str] = None) -> bool:
+        """
+        Export a video segment with optional theme application.
+
+        Args:
+            start_time: Start time in seconds
+            end_time: End time in seconds
+            output_path: Output file path
+            theme: Optional theme to apply
+
+        Returns:
+            True if successful
+        """
+        try:
+            if not self.input_video:
+                self.logger.error("No video loaded")
+                return False
+
+            if not self.dependencies['moviepy']:
+                self.logger.error("MoviePy not available")
+                return False
+
+            # Extract segment
+            clip = self.input_video.subclip(start_time, end_time)
+
+            # Apply theme if specified
+            if theme and theme in FUTURISTIC_THEMES:
+                clip = self.apply_theme_effects(clip, theme)
+
+            # Export
+            self.logger.info(f"Exporting segment {start_time}s-{end_time}s to {output_path}")
+            clip.write_videofile(
+                output_path,
+                codec='libx264',
+                audio_codec='aac',
+                temp_audiofile='temp-audio.m4a',
+                remove_temp=True,
+                fps=self.config.fps
+            )
+
+            clip.close()
+            self.logger.info(f"Export complete: {output_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to export segment: {e}")
+            return False
+
+    def apply_theme_effects(self, clip, theme: str):
+        """
+        Apply theme-based color grading and effects to a clip.
+
+        Args:
+            clip: MoviePy VideoClip
+            theme: Theme name
+
+        Returns:
+            Modified clip
+        """
+        if theme not in FUTURISTIC_THEMES:
+            return clip
+
+        try:
+            import moviepy.editor as mp
+            from moviepy.video.fx import all as vfx
+
+            theme_data = FUTURISTIC_THEMES[theme]
+            primary_color = theme_data['colors'][0]
+
+            # Color grading multipliers for different themes
+            color_transforms = {
+                'cyan': (0.8, 1.0, 1.3),           # Boost blue, reduce red
+                'magenta': (1.3, 0.7, 1.2),        # Boost red and blue
+                'purple': (1.2, 0.8, 1.3),         # Boost red and blue
+                'lightgreen': (0.8, 1.3, 0.9),     # Boost green
+                'gold': (1.3, 1.2, 0.8),           # Boost red and green
+                'emerald': (0.7, 1.3, 0.9),        # Strong green
+                'deep_purple': (1.1, 0.7, 1.2),    # Purple tint
+                'silver': (1.0, 1.0, 1.0),         # Neutral
+                'cosmic_blue': (0.7, 0.9, 1.3),    # Strong blue
+                'electric_blue': (0.6, 0.9, 1.4),  # Very blue
+                'white': (1.1, 1.1, 1.1),          # Brighten
+                'neural_green': (0.8, 1.2, 1.0),   # Green tint
+                'bioluminescent_green': (0.6, 1.4, 1.0),  # Strong green
+                'organic_brown': (1.2, 1.0, 0.8),  # Warm
+                'evolution_purple': (1.2, 0.8, 1.2)  # Purple
+            }
+
+            # Apply color grading
+            if primary_color in color_transforms:
+                r, g, b = color_transforms[primary_color]
+
+                # Apply color multipliers
+                def color_filter(get_frame, t):
+                    frame = get_frame(t)
+                    if len(frame.shape) == 3:
+                        frame = frame.astype(float)
+                        frame[:, :, 0] *= r  # Red channel
+                        frame[:, :, 1] *= g  # Green channel
+                        frame[:, :, 2] *= b  # Blue channel
+                        frame = frame.clip(0, 255).astype('uint8')
+                    return frame
+
+                clip = clip.fl(color_filter)
+
+            # Adjust brightness and contrast for certain themes
+            if theme in ['neon_cyberpunk', 'ai_consciousness']:
+                clip = clip.fx(vfx.lum_contrast, lum=0, contrast=0.2, contrast_thr=127)
+            elif theme == 'cosmic_voyage':
+                clip = clip.fx(vfx.lum_contrast, lum=-10, contrast=0.3, contrast_thr=100)
+
+            return clip
+
+        except Exception as e:
+            self.logger.error(f"Failed to apply theme effects: {e}")
+            return clip
+
     def generate_ai_images(self, theme: str, count: int = 3) -> List[str]:
         """
-        Generate AI images for a theme.
-        
+        Generate AI images or placeholder gradients for a theme.
+
         Args:
             theme: Theme name
             count: Number of images to generate
-            
+
         Returns:
             List of image file paths
         """
         if theme not in FUTURISTIC_THEMES:
             self.logger.warning(f"Unknown theme: {theme}")
             return []
-        
-        prompts = FUTURISTIC_THEMES[theme]['ai_prompts']
+
+        if not self.dependencies['pillow']:
+            self.logger.warning("Pillow not available for image generation")
+            return []
+
+        theme_data = FUTURISTIC_THEMES[theme]
         images = []
-        
-        # Placeholder for AI image generation
-        # In a real implementation, this would call an AI image generation API
-        for i in range(count):
-            prompt = prompts[i % len(prompts)]
-            image_path = f"generated_images/{theme}_{i}.png"
-            images.append(image_path)
-            self.logger.info(f"Generated image: {image_path} (prompt: {prompt})")
-        
-        return images
-    
-    def create_futuristic_remix(self, input_video_path: str, 
-                               output_dir: str = "output_segments") -> List[str]:
+
+        # Create output directory
+        output_dir = "generated_images"
+        os.makedirs(output_dir, exist_ok=True)
+
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            import numpy as np
+
+            for i in range(count):
+                # Create gradient image based on theme colors
+                width, height = self.config.resolution
+                image_path = os.path.join(output_dir, f"{theme}_{i}.png")
+
+                # Create gradient
+                img = self._create_theme_gradient(theme, width, height, i)
+                img.save(image_path)
+
+                images.append(image_path)
+                self.logger.info(f"Generated image: {image_path}")
+
+            return images
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate images: {e}")
+            return []
+
+    def _create_theme_gradient(self, theme: str, width: int, height: int, variant: int):
+        """Create a gradient image based on theme colors."""
+        from PIL import Image, ImageDraw
+        import numpy as np
+
+        theme_data = FUTURISTIC_THEMES[theme]
+
+        # Color definitions (RGB)
+        color_map = {
+            'cyan': (0, 255, 255),
+            'magenta': (255, 0, 255),
+            'purple': (128, 0, 255),
+            'lightgreen': (144, 238, 144),
+            'gold': (255, 215, 0),
+            'emerald': (80, 200, 120),
+            'deep_purple': (75, 0, 130),
+            'silver': (192, 192, 192),
+            'cosmic_blue': (0, 100, 200),
+            'electric_blue': (0, 150, 255),
+            'white': (255, 255, 255),
+            'neural_green': (0, 255, 100),
+            'bioluminescent_green': (0, 255, 150),
+            'organic_brown': (139, 90, 43),
+            'evolution_purple': (138, 43, 226)
+        }
+
+        # Get theme colors
+        color_names = theme_data['colors']
+        colors = [color_map.get(c, (128, 128, 128)) for c in color_names]
+
+        # Create gradient
+        img = Image.new('RGB', (width, height))
+        draw = ImageDraw.Draw(img)
+
+        # Different gradient styles for variants
+        if variant == 0:
+            # Vertical gradient
+            for y in range(height):
+                ratio = y / height
+                color_idx = int(ratio * (len(colors) - 1))
+                next_idx = min(color_idx + 1, len(colors) - 1)
+                local_ratio = (ratio * (len(colors) - 1)) - color_idx
+
+                r = int(colors[color_idx][0] * (1 - local_ratio) + colors[next_idx][0] * local_ratio)
+                g = int(colors[color_idx][1] * (1 - local_ratio) + colors[next_idx][1] * local_ratio)
+                b = int(colors[color_idx][2] * (1 - local_ratio) + colors[next_idx][2] * local_ratio)
+
+                draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+        elif variant == 1:
+            # Radial gradient from center
+            center_x, center_y = width // 2, height // 2
+            max_dist = ((width/2)**2 + (height/2)**2)**0.5
+
+            for y in range(height):
+                for x in range(width):
+                    dist = ((x - center_x)**2 + (y - center_y)**2)**0.5
+                    ratio = dist / max_dist
+                    color_idx = int(ratio * (len(colors) - 1))
+                    next_idx = min(color_idx + 1, len(colors) - 1)
+                    local_ratio = (ratio * (len(colors) - 1)) - color_idx
+
+                    r = int(colors[color_idx][0] * (1 - local_ratio) + colors[next_idx][0] * local_ratio)
+                    g = int(colors[color_idx][1] * (1 - local_ratio) + colors[next_idx][1] * local_ratio)
+                    b = int(colors[color_idx][2] * (1 - local_ratio) + colors[next_idx][2] * local_ratio)
+
+                    img.putpixel((x, y), (r, g, b))
+
+        else:
+            # Diagonal gradient
+            max_dist = (width**2 + height**2)**0.5
+            for y in range(height):
+                for x in range(width):
+                    dist = (x**2 + y**2)**0.5
+                    ratio = dist / max_dist
+                    color_idx = int(ratio * (len(colors) - 1))
+                    next_idx = min(color_idx + 1, len(colors) - 1)
+                    local_ratio = (ratio * (len(colors) - 1)) - color_idx
+
+                    r = int(colors[color_idx][0] * (1 - local_ratio) + colors[next_idx][0] * local_ratio)
+                    g = int(colors[color_idx][1] * (1 - local_ratio) + colors[next_idx][1] * local_ratio)
+                    b = int(colors[color_idx][2] * (1 - local_ratio) + colors[next_idx][2] * local_ratio)
+
+                    img.putpixel((x, y), (r, g, b))
+
+        return img
+
+    def create_text_overlay(self, text: str, duration: float, theme: str,
+                           position: str = 'center', font_size: int = 70) -> Any:
         """
-        Create a futuristic remix of a video.
-        
+        Create a text overlay clip with theme styling.
+
+        Args:
+            text: Text to display
+            duration: Duration in seconds
+            theme: Theme name for styling
+            position: Position ('center', 'top', 'bottom')
+            font_size: Font size in pixels
+
+        Returns:
+            MoviePy TextClip
+        """
+        try:
+            import moviepy.editor as mp
+
+            if theme not in FUTURISTIC_THEMES:
+                theme = 'neon_cyberpunk'
+
+            theme_data = FUTURISTIC_THEMES[theme]
+
+            # Map theme colors to RGB
+            color_map = {
+                'cyan': 'cyan',
+                'magenta': 'magenta',
+                'purple': '#8000FF',
+                'lightgreen': '#90EE90',
+                'gold': '#FFD700',
+                'emerald': '#50C878',
+                'deep_purple': '#4B0082',
+                'silver': '#C0C0C0',
+                'cosmic_blue': '#0064C8',
+                'electric_blue': '#0096FF',
+                'white': 'white',
+                'neural_green': '#00FF64',
+                'bioluminescent_green': '#00FF96',
+                'organic_brown': '#8B5A2B',
+                'evolution_purple': '#8A2BE2'
+            }
+
+            primary_color = theme_data['colors'][0]
+            text_color = color_map.get(primary_color, 'white')
+
+            # Create text clip
+            txt_clip = mp.TextClip(
+                text,
+                fontsize=font_size,
+                color=text_color,
+                font='Arial-Bold',
+                stroke_color='black',
+                stroke_width=2
+            )
+
+            txt_clip = txt_clip.set_duration(duration)
+
+            # Set position
+            if position == 'center':
+                txt_clip = txt_clip.set_position('center')
+            elif position == 'top':
+                txt_clip = txt_clip.set_position(('center', 50))
+            elif position == 'bottom':
+                txt_clip = txt_clip.set_position(('center', 'bottom'))
+
+            return txt_clip
+
+        except Exception as e:
+            self.logger.error(f"Failed to create text overlay: {e}")
+            return None
+
+    def detect_scenes(self, threshold: float = 30.0) -> List[Tuple[float, float]]:
+        """
+        Detect scene boundaries in the loaded video.
+
+        Args:
+            threshold: Scene detection threshold (higher = fewer scenes)
+
+        Returns:
+            List of (start_time, end_time) tuples for each scene
+        """
+        try:
+            if not self.input_video or not self.input_path:
+                self.logger.error("No video loaded")
+                return []
+
+            if not self.dependencies['scenedetect']:
+                self.logger.warning("SceneDetect not available, using time-based segmentation")
+                return []
+
+            from scenedetect import VideoManager, SceneManager
+            from scenedetect.detectors import ContentDetector
+
+            # Create video manager
+            video_manager = VideoManager([self.input_path])
+            scene_manager = SceneManager()
+
+            # Add detector
+            scene_manager.add_detector(ContentDetector(threshold=threshold))
+
+            # Detect scenes
+            video_manager.set_downscale_factor()
+            video_manager.start()
+            scene_manager.detect_scenes(frame_source=video_manager)
+
+            # Get scene list
+            scene_list = scene_manager.get_scene_list()
+
+            scenes = []
+            for i, scene in enumerate(scene_list):
+                start_time = scene[0].get_seconds()
+                end_time = scene[1].get_seconds()
+                scenes.append((start_time, end_time))
+
+            self.logger.info(f"Detected {len(scenes)} scenes")
+            return scenes
+
+        except Exception as e:
+            self.logger.error(f"Scene detection failed: {e}")
+            return []
+
+    def add_audio_fade(self, clip, fade_in: float = 1.0, fade_out: float = 1.0):
+        """
+        Add audio fade in/out to a clip.
+
+        Args:
+            clip: MoviePy VideoClip
+            fade_in: Fade in duration in seconds
+            fade_out: Fade out duration in seconds
+
+        Returns:
+            Clip with audio fades
+        """
+        try:
+            from moviepy.audio.fx import all as afx
+
+            if clip.audio is None:
+                return clip
+
+            # Apply fade in
+            if fade_in > 0:
+                clip = clip.audio_fadein(fade_in)
+
+            # Apply fade out
+            if fade_out > 0:
+                clip = clip.audio_fadeout(fade_out)
+
+            return clip
+
+        except Exception as e:
+            self.logger.error(f"Failed to add audio fade: {e}")
+            return clip
+
+    def add_background_music(self, clip, music_path: str,
+                           volume: float = 0.3, loop: bool = True):
+        """
+        Add background music to a clip.
+
+        Args:
+            clip: MoviePy VideoClip
+            music_path: Path to music file
+            volume: Music volume (0.0 to 1.0)
+            loop: Whether to loop music
+
+        Returns:
+            Clip with background music
+        """
+        try:
+            import moviepy.editor as mp
+
+            if not os.path.exists(music_path):
+                self.logger.warning(f"Music file not found: {music_path}")
+                return clip
+
+            # Load music
+            music = mp.AudioFileClip(music_path)
+
+            # Loop if needed
+            if loop and music.duration < clip.duration:
+                n_loops = int(clip.duration / music.duration) + 1
+                music = mp.concatenate_audioclips([music] * n_loops)
+
+            # Trim to clip duration
+            music = music.subclip(0, min(music.duration, clip.duration))
+
+            # Adjust volume
+            music = music.volumex(volume)
+
+            # Mix with original audio
+            if clip.audio is not None:
+                final_audio = mp.CompositeAudioClip([clip.audio, music])
+            else:
+                final_audio = music
+
+            clip = clip.set_audio(final_audio)
+
+            return clip
+
+        except Exception as e:
+            self.logger.error(f"Failed to add background music: {e}")
+            return clip
+
+    def apply_glitch_effect(self, clip, intensity: float = 0.1):
+        """
+        Apply glitch/distortion effect to a clip.
+
+        Args:
+            clip: MoviePy VideoClip
+            intensity: Effect intensity (0.0 to 1.0)
+
+        Returns:
+            Clip with glitch effect
+        """
+        try:
+            import numpy as np
+
+            def glitch_frame(get_frame, t):
+                frame = get_frame(t)
+
+                # Random horizontal shifts for glitch effect
+                if np.random.random() < intensity:
+                    shift = int(np.random.random() * 50 - 25)
+                    frame = np.roll(frame, shift, axis=1)
+
+                # Random color channel shifts
+                if np.random.random() < intensity / 2:
+                    frame[:, :, 0] = np.roll(frame[:, :, 0], 5, axis=1)  # Red shift
+                    frame[:, :, 2] = np.roll(frame[:, :, 2], -5, axis=1)  # Blue shift
+
+                return frame
+
+            return clip.fl(glitch_frame)
+
+        except Exception as e:
+            self.logger.error(f"Failed to apply glitch effect: {e}")
+            return clip
+
+    def apply_glow_effect(self, clip, theme: str):
+        """
+        Apply glow/bloom effect based on theme.
+
+        Args:
+            clip: MoviePy VideoClip
+            theme: Theme name
+
+        Returns:
+            Clip with glow effect
+        """
+        try:
+            import numpy as np
+
+            if theme not in FUTURISTIC_THEMES:
+                return clip
+
+            # Glow effect by brightening bright pixels
+            def glow_frame(get_frame, t):
+                frame = get_frame(t).astype(float)
+
+                # Find bright pixels
+                brightness = frame.mean(axis=2)
+                bright_mask = brightness > 180
+
+                # Amplify bright areas
+                for c in range(3):
+                    frame[:, :, c][bright_mask] = np.clip(
+                        frame[:, :, c][bright_mask] * 1.3,
+                        0, 255
+                    )
+
+                return frame.astype('uint8')
+
+            return clip.fl(glow_frame)
+
+        except Exception as e:
+            self.logger.error(f"Failed to apply glow effect: {e}")
+            return clip
+
+    def composite_with_images(self, video_clip, image_paths: List[str],
+                             theme: str, opacity: float = 0.3):
+        """
+        Composite AI-generated images over video.
+
+        Args:
+            video_clip: Base video clip
+            image_paths: List of image file paths
+            theme: Theme name
+            opacity: Image opacity (0.0 to 1.0)
+
+        Returns:
+            Composited clip
+        """
+        try:
+            import moviepy.editor as mp
+
+            if not image_paths:
+                return video_clip
+
+            # Filter existing images
+            existing_images = [p for p in image_paths if os.path.exists(p)]
+
+            if not existing_images:
+                self.logger.warning("No existing images to composite")
+                return video_clip
+
+            # Create image clips
+            duration_per_image = video_clip.duration / len(existing_images)
+
+            overlay_clips = []
+            for i, img_path in enumerate(existing_images):
+                # Load image
+                img_clip = mp.ImageClip(img_path)
+
+                # Resize to video size
+                img_clip = img_clip.resize(video_clip.size)
+
+                # Set timing
+                start_time = i * duration_per_image
+                img_clip = img_clip.set_start(start_time)
+                img_clip = img_clip.set_duration(duration_per_image)
+
+                # Set opacity
+                img_clip = img_clip.set_opacity(opacity)
+
+                overlay_clips.append(img_clip)
+
+            # Composite all clips
+            final_clip = mp.CompositeVideoClip([video_clip] + overlay_clips)
+
+            return final_clip
+
+        except Exception as e:
+            self.logger.error(f"Failed to composite images: {e}")
+            return video_clip
+
+    def create_futuristic_remix(self, input_video_path: str,
+                               output_dir: str = "output_segments",
+                               apply_effects: bool = True,
+                               add_overlays: bool = True) -> List[str]:
+        """
+        Create a futuristic remix of a video with full effects.
+
         Args:
             input_video_path: Path to input video
             output_dir: Output directory for segments
-            
+            apply_effects: Whether to apply visual effects
+            add_overlays: Whether to add AI image overlays
+
         Returns:
             List of output file paths
         """
         try:
+            import moviepy.editor as mp
+
             # Load video
             if not self.load_video(input_video_path):
                 return []
-            
-            # Create segments
-            segments = self.create_segments()
-            
+
+            # Create output directory
+            os.makedirs(output_dir, exist_ok=True)
+
+            # Create segments (time-based or scene-based)
+            if self.dependencies['scenedetect']:
+                scenes = self.detect_scenes()
+                if scenes:
+                    self.logger.info(f"Using {len(scenes)} detected scenes")
+                    # Create segments from scenes
+                    segments = []
+                    for i, (start, end) in enumerate(scenes):
+                        theme = self.config.themes[i % len(self.config.themes)]
+                        segments.append(VideoSegment(
+                            start_time=start,
+                            end_time=end,
+                            theme=theme
+                        ))
+                    self.segments = segments
+                else:
+                    segments = self.create_segments()
+            else:
+                segments = self.create_segments()
+
             # Process each segment
             output_files = []
             for i, segment in enumerate(segments):
-                # Generate AI images for this segment
-                ai_images = self.generate_ai_images(segment.theme, 3)
-                segment.ai_images = ai_images
-                
-                # Create output filename
+                self.logger.info(f"Processing segment {i+1}/{len(segments)}: {segment.theme}")
+
+                # Extract clip
+                clip = self.input_video.subclip(segment.start_time, segment.end_time)
+
+                # Apply theme color grading
+                clip = self.apply_theme_effects(clip, segment.theme)
+
+                if apply_effects:
+                    # Apply glitch effect for cyberpunk theme
+                    if segment.theme == 'neon_cyberpunk':
+                        clip = self.apply_glitch_effect(clip, intensity=0.05)
+
+                    # Apply glow for certain themes
+                    if segment.theme in ['neon_cyberpunk', 'ai_consciousness', 'cosmic_voyage']:
+                        clip = self.apply_glow_effect(clip, segment.theme)
+
+                # Add audio fades
+                clip = self.add_audio_fade(clip, fade_in=0.5, fade_out=0.5)
+
+                # Generate and composite AI images
+                if add_overlays:
+                    ai_images = self.generate_ai_images(segment.theme, 3)
+                    segment.ai_images = ai_images
+                    if ai_images:
+                        clip = self.composite_with_images(clip, ai_images, segment.theme, opacity=0.2)
+
+                # Add title overlay
+                title = f"{segment.theme.replace('_', ' ').title()}"
+                title_clip = self.create_text_overlay(
+                    title,
+                    duration=2.0,
+                    theme=segment.theme,
+                    position='top',
+                    font_size=60
+                )
+
+                if title_clip:
+                    clip = mp.CompositeVideoClip([clip, title_clip])
+
+                # Export segment
                 output_file = os.path.join(output_dir, f"segment_{i:03d}_{segment.theme}.mp4")
+                self.logger.info(f"Exporting to: {output_file}")
+
+                clip.write_videofile(
+                    output_file,
+                    codec='libx264',
+                    audio_codec='aac',
+                    temp_audiofile='temp-audio.m4a',
+                    remove_temp=True,
+                    fps=self.config.fps,
+                    preset='medium'
+                )
+
+                clip.close()
                 output_files.append(output_file)
-                
-                self.logger.info(f"Processed segment {i}: {segment.theme}")
-            
+
+                self.logger.info(f"Completed segment {i+1}: {output_file}")
+
+            self.logger.info(f"Remix complete! Created {len(output_files)} segments")
             return output_files
-            
+
         except Exception as e:
             self.logger.error(f"Error creating futuristic remix: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def get_workflow_status(self) -> Dict[str, Any]:
