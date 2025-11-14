@@ -4,7 +4,19 @@ PyInstaller spec file for B3PersonalAssistant Desktop App
 Builds standalone executable with all dependencies bundled
 """
 
+import os
+import sys
+
 block_cipher = None
+
+# Determine icon path based on platform
+icon_path = None
+if sys.platform == 'win32' and os.path.exists('icon.ico'):
+    icon_path = 'icon.ico'
+elif sys.platform == 'darwin' and os.path.exists('icon.icns'):
+    icon_path = 'icon.icns'
+elif os.path.exists('resources/icons/b3personalassistant.png'):
+    icon_path = 'resources/icons/b3personalassistant.png'
 
 # Analysis: Find all Python files and dependencies
 a = Analysis(
@@ -79,7 +91,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico' if os.path.exists('icon.ico') else None,  # Add icon if available
+    icon=icon_path,  # Use detected icon path
 )
 
 # COLLECT: Collect all files into distribution directory
@@ -95,17 +107,18 @@ coll = COLLECT(
 )
 
 # For macOS: Create app bundle
-import sys
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name='B3PersonalAssistant.app',
-        icon='icon.icns' if os.path.exists('icon.icns') else None,
+        icon=icon_path if icon_path and icon_path.endswith('.icns') else None,
         bundle_identifier='com.profb3.b3personalassistant',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSHighResolutionCapable': 'True',
             'CFBundleShortVersionString': '1.0.0',
             'CFBundleVersion': '1.0.0',
+            'CFBundleDisplayName': 'B3 Personal Assistant',
+            'CFBundleName': 'B3PersonalAssistant',
         },
     )
