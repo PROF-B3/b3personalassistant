@@ -19,7 +19,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from interfaces.desktop_app.utils.theme import get_stylesheet, DARK_THEME
-from interfaces.desktop_app.panels import FileTreePanel, AgentPanel, ResearchPanel, WritingPanel
+from interfaces.desktop_app.panels import FileTreePanel, AgentPanel, ResearchPanel, WritingPanel, VideoPanel
 from core.orchestrator import Orchestrator
 
 
@@ -268,6 +268,13 @@ class DesktopApp(QMainWindow):
         self.writing_panel.setVisible(False)
         self.workspace_layout.addWidget(self.writing_panel)
 
+        self.video_panel = VideoPanel(self.orchestrator)
+        self.video_panel.segment_created.connect(self._on_segment_created)
+        self.video_panel.theme_applied.connect(self._on_theme_applied)
+        self.video_panel.export_requested.connect(self._on_video_export_requested)
+        self.video_panel.setVisible(False)
+        self.workspace_layout.addWidget(self.video_panel)
+
         # Placeholder for other modes
         self.workspace_placeholder = QLabel("Workspace\n\nOpen a file to begin\n\nPDF → Research Mode\nVideo → Video Mode\nMarkdown → Writing Mode")
         self.workspace_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -371,8 +378,26 @@ class DesktopApp(QMainWindow):
         self.status_label.setText(f"Switched to {mode.title()} mode")
         # Update agent panel for mode
         self.agent_chat.update_for_mode(mode)
+
         # Update workspace based on mode
-        # (Will be implemented when mode-specific panels are added)
+        mode_lower = mode.lower()
+
+        # Hide all panels first
+        self.research_panel.setVisible(False)
+        self.writing_panel.setVisible(False)
+        self.video_panel.setVisible(False)
+        self.workspace_placeholder.setVisible(False)
+
+        # Show appropriate panel based on mode
+        if mode_lower == "research" and self.research_panel.current_file:
+            self.research_panel.setVisible(True)
+        elif mode_lower == "writing" and self.writing_panel.current_file:
+            self.writing_panel.setVisible(True)
+        elif mode_lower == "video" and self.video_panel.current_file:
+            self.video_panel.setVisible(True)
+        else:
+            # Show placeholder if no file loaded
+            self.workspace_placeholder.setVisible(True)
 
     def _toggle_sidebar(self):
         """Toggle sidebar visibility."""
@@ -581,6 +606,7 @@ class DesktopApp(QMainWindow):
         # Hide all panels
         self.research_panel.setVisible(False)
         self.writing_panel.setVisible(False)
+        self.video_panel.setVisible(False)
         self.workspace_placeholder.setVisible(False)
 
         if suffix == '.pdf':
@@ -610,13 +636,22 @@ class DesktopApp(QMainWindow):
                 )
                 self.workspace_placeholder.setVisible(True)
 
-        elif suffix in ['.mp4', '.avi', '.mov', '.mkv']:
-            # Video mode (to be implemented)
-            self.workspace_placeholder.setText(
-                "Video Mode\n\n"
-                "Video player will be implemented in Phase 5"
-            )
-            self.workspace_placeholder.setVisible(True)
+        elif suffix in ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv']:
+            # Load in video panel
+            success = self.video_panel.load_file(file_path)
+            if success:
+                self.video_panel.setVisible(True)
+                duration_ms = self.video_panel.video_player.get_duration()
+                duration_s = duration_ms / 1000
+                self.status_label.setText(f"Video loaded: {Path(file_path).name} ({duration_s:.1f}s)")
+                # Auto-switch to Video mode
+                self.mode_combo.setCurrentText("Video")
+            else:
+                self.workspace_placeholder.setText(
+                    "Failed to load video\n\n"
+                    "Ensure PyQt6 multimedia is installed:\npip install PyQt6-Multimedia"
+                )
+                self.workspace_placeholder.setVisible(True)
 
         else:
             # Unsupported file type
@@ -661,6 +696,23 @@ class DesktopApp(QMainWindow):
         message = f"Please improve this text and suggest enhancements:\n\n{text[:500]}"
         self.agent_chat.message_input.setText(message)
         self.agent_chat._send_message()
+
+    # Video panel callbacks
+    def _on_segment_created(self, start_ms: int, end_ms: int):
+        """Handle segment created."""
+        start_s = start_ms / 1000
+        end_s = end_ms / 1000
+        self.status_label.setText(f"Segment marked: {start_s:.2f}s - {end_s:.2f}s")
+
+    def _on_theme_applied(self, theme_name: str):
+        """Handle theme applied."""
+        self.status_label.setText(f"Theme '{theme_name}' applied to video")
+        # Could trigger Epsilon agent for AI image generation
+
+    def _on_video_export_requested(self, format_type: str, output_path: str):
+        """Handle video export request."""
+        self.status_label.setText(f"Exporting video to: {Path(output_path).name}")
+        # Would implement actual export here
 
 
 def launch_desktop_app(user_profile: Optional[Dict] = None, config: Optional[Any] = None):
