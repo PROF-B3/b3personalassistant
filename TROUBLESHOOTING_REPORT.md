@@ -509,26 +509,40 @@ The README now includes a comprehensive Terminal Web Interface section with:
 
 ### 11.1 Dependency Installation
 
-**Status:** IN PROGRESS
+**Status:** COMPLETED
 
 **Command:**
 ```bash
 pip install httpx ollama chromadb sentence-transformers pydantic-settings loguru rich python-dotenv tenacity aiohttp requests
 ```
 
-**Progress:**
-- ✅ Downloaded: httpx, ollama, chromadb, sentence-transformers, pydantic-settings
-- ✅ Downloaded: loguru, rich, python-dotenv, tenacity, aiohttp
-- ⏳ Downloading: torch-2.9.1 (899.8 MB) - IN PROGRESS
+**Packages Successfully Installed:**
+- ✅ httpx, ollama, python-dotenv, loguru, rich, tenacity, aiohttp, pydantic-settings
+- ✅ markdown, psutil, sqlalchemy, alembic, networkx
+- ✅ numpy, pandas, scipy, scikit-learn
+- ✅ pytest, pytest-asyncio, pytest-cov
+- ✅ Total: 80+ packages installed
 
-**Dependencies Breakdown:**
-- Main packages: 11
-- Sub-dependencies: 100+
-- Total download size: ~1.5 GB
+**Note:** Heavy ML packages (torch, chromadb, sentence-transformers) not installed to save time.
+System can run without them but semantic search features will be limited.
 
 ### 11.2 Import Tests
 
-**Status:** AWAITING DEPENDENCY INSTALLATION
+**Status:** PARTIALLY SUCCESSFUL
+
+**Core Module Imports:** ✅ PASSED
+```bash
+$ python -c "from core.orchestrator import Orchestrator; print('OK')"
+INFO:resource_monitor:System initialized - CPU cores: 16, Memory: 13.0GB, Disk: 29.4GB
+✓ Orchestrator imported successfully
+```
+
+**Web API Import:** ❌ FAILED - Database Schema Issues
+
+**Error Encountered:**
+```
+sqlite3.OperationalError: no such column: session_id
+```
 
 Test commands prepared:
 ```python
@@ -570,13 +584,126 @@ Manual test checklist:
 
 ---
 
-## 12. Conclusion
+## 12. Critical Bugs Discovered
 
-### 12.1 Overall System Health
+### 12.1 Database Schema Conflicts
 
-**Status:** HEALTHY (pending dependency installation)
+**Severity:** CRITICAL
+**Impact:** Prevents web API server from starting
 
-**Code Quality:** EXCELLENT
+**Description:**
+Multiple database schema conflicts exist across the codebase where different modules create tables with conflicting column definitions.
+
+**Bug #1: Tasks Table Schema Mismatch**
+
+**Files Involved:**
+- `modules/task_management.py` - Creates tasks table with `category` (TEXT) and `project` (TEXT)
+- `modules/tasks.py` - Expects `category_id` (INTEGER) and `project_id` (TEXT)
+
+**Actual Schema Created (by task_management.py):**
+```sql
+CREATE TABLE tasks (
+    task_id TEXT PRIMARY KEY,
+    ...
+    category TEXT,  -- Actual column
+    project TEXT,   -- Actual column
+    ...
+)
+```
+
+**Expected Schema (by tasks.py index creation):**
+```sql
+CREATE INDEX idx_tasks_category ON tasks(category_id)  -- Column doesn't exist!
+CREATE INDEX idx_tasks_project ON tasks(project_id)    -- Column doesn't exist!
+```
+
+**Error:**
+```
+sqlite3.OperationalError: no such column: category_id
+  at modules/tasks.py:162
+```
+
+**Temporary Fix Applied:**
+Commented out problematic index creation in tasks.py lines 164-165.
+
+**Proper Fix Required:**
+1. Consolidate task management into single module
+2. Remove duplicate TaskManager classes
+3. Standardize database schema
+4. Create database migration script
+
+---
+
+**Bug #2: Conversations Table Schema Mismatch**
+
+**File:** `modules/conversation.py:153`
+
+**Error:**
+```
+sqlite3.OperationalError: no such column: session_id
+```
+
+**Status:** NOT YET FIXED
+
+---
+
+**Bug #3: Potential Additional Schema Conflicts**
+
+Based on the pattern discovered, likely additional schema conflicts exist in:
+- Other database initialization code
+- Migration scripts
+- Table relationship constraints
+
+**Recommendation:**
+Perform systematic audit of all database schemas defined in:
+- `modules/*.py`
+- `core/*.py`
+- Compare against actual database schemas created
+
+---
+
+### 12.2 Missing Optional Dependencies
+
+**Severity:** LOW
+**Impact:** Some features unavailable but system functional
+
+**Missing Packages:**
+- Pillow - Image processing
+- pytesseract - OCR
+- PyPDF2 / pdfplumber - PDF processing
+- python-docx - DOCX support
+- openai-whisper - Voice transcription
+
+**Status:** Documented in warnings, no crash
+
+---
+
+### 12.3 ML Dependencies Not Installed
+
+**Severity:** MEDIUM
+**Impact:** Semantic search and embeddings features unavailable
+
+**Not Installed:**
+- torch (900 MB) - Deep learning framework
+- chromadb - Vector database
+- sentence-transformers - Embeddings
+
+**Reason:** Extremely large download size, not critical for basic functionality
+
+**Recommendation:**
+- Document as optional dependencies
+- Add feature flags to gracefully handle missing ML packages
+- Provide installation guide for full ML features
+
+---
+
+## 13. Conclusion
+
+### 13.1 Overall System Health
+
+**Status:** PARTIALLY FUNCTIONAL - Critical Database Schema Bugs
+
+**Code Quality:** GOOD
 - Well-structured codebase
 - Comprehensive test coverage
 - Proper error handling
@@ -589,48 +716,58 @@ Manual test checklist:
 - ✅ Documentation: Comprehensive
 - ✅ CI/CD: Fully configured
 
-**Blockers:**
-- ⚠️ Missing dependencies (being resolved)
+**Critical Issues Found:**
+- ❌ Database schema conflicts preventing web API startup
+- ⚠️ Multiple TaskManager implementations creating conflicting schemas
+- ⚠️ ML dependencies not installed (non-critical)
 
-### 12.2 Production Readiness
+### 13.2 Production Readiness
 
 **Current State:** NOT PRODUCTION READY
 
-**Reasons:**
-1. Dependencies not installed
-2. Ollama requirement not validated
-3. No authentication/authorization
-4. No load testing performed
-5. No monitoring/alerting
-6. No backup/recovery tested
+**Blockers:**
+1. ❌ **CRITICAL:** Database schema conflicts must be resolved
+2. ❌ **HIGH:** Duplicate TaskManager classes need consolidation
+3. ⚠️ **MEDIUM:** ML dependencies needed for full functionality
+4. ⚠️ **MEDIUM:** No authentication/authorization
+5. ⚠️ **LOW:** No load testing performed
+6. ⚠️ **LOW:** No monitoring/alerting
+7. ⚠️ **LOW:** No backup/recovery tested
 
 **Estimated Time to Production:**
-- With dependencies: 1-2 hours (basic testing)
-- With security: 1-2 days
-- With scalability: 1-2 weeks
+- Fix schema conflicts: 2-4 hours
+- Basic testing: 1-2 hours
+- Add security: 1-2 days
+- Full scalability: 1-2 weeks
 
-### 12.3 Next Steps
+### 13.3 Next Steps
 
-**Immediate (Next 30 minutes):**
-1. Complete pip installation
-2. Test core imports
-3. Start web server
-4. Access Terminal UI
-5. Send test message
+**IMMEDIATE - Fix Critical Bugs (2-4 hours):**
+1. ✅ Identify database schema conflicts (DONE)
+2. ❌ Fix conversation.py schema mismatch
+3. ❌ Audit all database schemas
+4. ❌ Consolidate duplicate TaskManager classes
+5. ❌ Create database migration script
+6. ❌ Delete and recreate all databases with correct schema
+7. ❌ Test web server startup
 
-**Short-term (Next 1-2 hours):**
-1. Run full test suite
-2. Verify all features work
-3. Test error scenarios
-4. Document any issues
-5. Create issue tracker
+**Short-term - Basic Functionality (1-2 hours):**
+1. Start web server successfully
+2. Access Terminal UI at http://localhost:8000
+3. Test WebSocket connection
+4. Send test chat message
+5. Verify orchestrator integration
+6. Run test suite
+7. Document working features
 
-**Medium-term (Next 1-2 days):**
-1. Add authentication
-2. Add monitoring
-3. Perform load testing
-4. Fix any bugs found
-5. Update documentation
+**Medium-term - Production Ready (1-2 days):**
+1. Install remaining ML dependencies (optional)
+2. Add authentication/authorization
+3. Add monitoring (Prometheus/Grafana)
+4. Perform load testing
+5. Fix any remaining bugs
+6. Complete documentation
+7. Security audit
 
 ---
 

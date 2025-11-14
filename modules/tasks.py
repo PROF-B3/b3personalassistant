@@ -159,8 +159,10 @@ class TaskManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id)")
+            # FIXME: Schema conflict - task_management.py creates 'category' and 'project' columns (TEXT)
+            # but this file expects 'category_id' and 'project_id' columns
+            # cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id)")
+            # cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_dependencies_task ON task_dependencies(task_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_dependencies_depends ON task_dependencies(depends_on_id)")
             
