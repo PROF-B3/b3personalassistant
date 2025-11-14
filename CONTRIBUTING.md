@@ -54,13 +54,14 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
+
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your configuration
 
 # Install pre-commit hooks
 pre-commit install
-
-# Initialize database
-python scripts/init_database.py
 
 # Run tests to verify setup
 pytest tests/ -v
@@ -76,12 +77,18 @@ git checkout -b feature/your-feature-name
 python run_assistant.py
 pytest tests/ -v
 
-# Run linting and formatting
-black .
-isort .
-flake8 .
+# Run ALL quality checks at once (recommended)
+make quality
 
-# Commit changes
+# Or run individual checks:
+make format        # Format code with black and isort
+make lint          # Run flake8 and pylint
+make type-check    # Run mypy type checking
+make security-check # Run bandit security scan
+make test          # Run tests
+make test-coverage # Run tests with coverage report
+
+# Commit changes (pre-commit hooks will run automatically)
 git add .
 git commit -m "feat: add new feature"
 
@@ -91,9 +98,15 @@ git push origin feature/your-feature-name
 
 ## 📝 Code Standards
 
+> **📖 For detailed quality standards, see [CODE_QUALITY_STANDARDS.md](CODE_QUALITY_STANDARDS.md)**
+
 ### Python Style Guide
 
-We follow **PEP 8** with some modifications:
+We follow **PEP 8** with these modifications:
+- **Line length**: 100 characters (not 79)
+- **Formatting**: Use Black for automatic formatting
+- **Import sorting**: Use isort
+- **Type hints**: Required for all new code in `core/` module
 
 ```python
 # Good: Clear, readable code
@@ -179,6 +192,43 @@ from modules.video_processing import VideoProcessor
 from databases.manager import DatabaseManager
 ```
 
+### Security Guidelines
+
+**Critical security rules (see [CODE_QUALITY_STANDARDS.md](CODE_QUALITY_STANDARDS.md#security-guidelines) for details):**
+
+1. ✅ **Always validate user input** using `InputValidator`
+2. ✅ **Use parameterized queries** to prevent SQL injection
+3. ✅ **Validate file paths** to prevent path traversal attacks
+4. ✅ **Store secrets in environment variables** (use `.env` file, never hardcode)
+5. ✅ **Implement timeouts** for all external operations
+6. ✅ **Use specific exceptions** (never bare `except:` or catch-all `Exception`)
+
+```python
+# Good ✅ - Secure database query
+cursor.execute(
+    "SELECT * FROM users WHERE email = ?",
+    (user_email,)
+)
+
+# Bad ❌ - SQL injection vulnerability
+cursor.execute(
+    f"SELECT * FROM users WHERE email = '{user_email}'"
+)
+
+# Good ✅ - Validate and sanitize input
+from core.validators import InputValidator
+
+validator = InputValidator()
+safe_input = validator.validate_and_sanitize(user_input)
+
+# Good ✅ - Secure file path handling
+from pathlib import Path
+
+validated_path = Path(file_path).resolve()
+if not validated_path.is_relative_to(base_dir):
+    raise ValueError("Invalid file path")
+```
+
 ## 🧪 Testing
 
 ### Running Tests
@@ -187,49 +237,77 @@ from databases.manager import DatabaseManager
 # Run all tests
 pytest tests/ -v
 
-# Run specific test file
-pytest tests/test_core.py -v
+# Run specific test markers
+pytest -m unit            # Fast unit tests only
+pytest -m integration     # Integration tests
+pytest -m "not slow"      # Skip slow tests
 
-# Run with coverage
-pytest tests/ --cov=core --cov=modules --cov-report=html
+# Run with coverage (use Makefile command)
+make test-coverage
+
+# Or run pytest directly
+pytest tests/ --cov=core --cov=modules --cov-report=html --cov-report=term
+
+# Run specific test file
+pytest tests/test_validators.py -v
 
 # Run specific test
 pytest tests/test_core.py::test_orchestrator_initialization -v
 ```
 
+### Coverage Requirements
+
+- **Core modules** (`core/`): 90% coverage target
+- **Feature modules** (`modules/`): 80% coverage target
+- **UI modules** (`interfaces/`): 70% coverage target
+
+View coverage report: `htmlcov/index.html` after running `make test-coverage`
+
 ### Writing Tests
 
 ```python
 import pytest
-from core.orchestrator import Orchestrator
+from core.validators import InputValidator
+from core.exceptions import InputValidationError
 
-class TestOrchestrator:
-    """Test cases for Orchestrator class."""
-    
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.orchestrator = Orchestrator()
-    
-    def test_initialization(self):
-        """Test orchestrator initialization."""
-        assert self.orchestrator is not None
-        assert hasattr(self.orchestrator, 'agents')
-    
-    def test_process_request(self):
-        """Test request processing."""
-        result = self.orchestrator.process_request("Hello")
-        assert isinstance(result, str)
-        assert len(result) > 0
-    
-    @pytest.mark.parametrize("request_text", [
-        "Research AI",
-        "Create task",
-        "Save note"
-    ])
-    def test_various_requests(self, request_text):
-        """Test different types of requests."""
-        result = self.orchestrator.process_request(request_text)
-        assert result is not None
+# Use pytest markers for test categorization
+@pytest.mark.unit
+def test_validator_rejects_empty_input():
+    """Unit test: fast, isolated, no external dependencies."""
+    validator = InputValidator()
+    with pytest.raises(InputValidationError, match="too short"):
+        validator.validate_and_sanitize("")
+
+@pytest.mark.integration
+def test_database_migration_workflow(temp_db):
+    """Integration test: tests component interactions."""
+    from core.database_migrations import MigrationManager
+
+    manager = MigrationManager(temp_db)
+    manager.migrate_up()
+    assert manager.get_current_version() > 0
+
+@pytest.mark.slow
+def test_bulk_insert_performance():
+    """Performance test: may take longer to run."""
+    from core.performance import PerformanceTimer
+
+    with PerformanceTimer("bulk_insert") as timer:
+        # Perform bulk operation
+        pass
+    assert timer.elapsed_ms < 1000, "Operation too slow"
+
+# Use parametrized tests for multiple scenarios
+@pytest.mark.parametrize("dangerous_input", [
+    "<script>alert(1)</script>",
+    "javascript:void(0)",
+    '<img onerror="alert(1)">',
+])
+def test_dangerous_patterns(dangerous_input):
+    """Test validation rejects dangerous patterns."""
+    validator = InputValidator()
+    with pytest.raises(InputValidationError):
+        validator.validate_and_sanitize(dangerous_input)
 ```
 
 ### Test Guidelines
@@ -359,13 +437,24 @@ Contributors are recognized in:
 ### Development Tools
 
 ```bash
-# Code formatting
+# Use Makefile commands (recommended)
+make help          # Show all available commands
+make quality       # Run ALL quality checks
+make format        # Format code with black and isort
+make lint          # Run flake8 and pylint
+make type-check    # Run mypy type checking
+make security-check # Run bandit security scan
+make test          # Run tests
+make test-coverage # Run tests with coverage report
+make clean         # Clean build artifacts
+
+# Or run tools individually
 black .
 isort .
-
-# Linting
-flake8 .
+flake8 core/ modules/
 mypy core/ modules/
+pylint core/ modules/
+bandit -r core/ modules/
 
 # Testing
 pytest tests/ -v --cov

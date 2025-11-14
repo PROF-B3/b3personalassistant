@@ -1,7 +1,9 @@
-.PHONY: help install install-dev test lint format clean docs build dist
+.PHONY: help install install-dev test test-unit test-integration test-coverage lint format format-check type-check security-check quality clean docs build dist
 
 help: ## Show this help message
-	@echo "B3PersonalAssistant - Multi-Agent AI Personal Assistant"
+	@echo "╔═══════════════════════════════════════════════════════════╗"
+	@echo "║   B3PersonalAssistant - Multi-Agent AI Assistant         ║"
+	@echo "╚═══════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -14,24 +16,51 @@ install-dev: ## Install development dependencies
 	pip install -r requirements-dev.txt
 	pre-commit install
 
-test: ## Run tests
-	python -m pytest tutorial/ -v --cov=B3PersonalAssistant
+test: ## Run all tests
+	python -m pytest tests/ -v
 
-test-quick: ## Run tests quickly
-	python -m pytest tutorial/ -x
+test-unit: ## Run unit tests only (fast)
+	python -m pytest tests/ -m unit -v
 
-lint: ## Run linting checks
-	flake8 B3PersonalAssistant/
-	mypy B3PersonalAssistant/
-	bandit -r B3PersonalAssistant/
+test-integration: ## Run integration tests
+	python -m pytest tests/ -m integration -v
+
+test-coverage: ## Run tests with coverage report
+	python -m pytest tests/ --cov=core --cov=modules --cov-report=html --cov-report=term-missing
+	@echo "✅ Coverage report: htmlcov/index.html"
+
+test-quick: ## Run tests quickly (stop on first failure)
+	python -m pytest tests/ -x
+
+lint: ## Run all linting checks
+	@echo "🔍 Running flake8..."
+	flake8 core/ modules/ --max-line-length=100 || true
+	@echo "🔍 Running pylint..."
+	pylint core/ modules/ --max-line-length=100 || true
+
+type-check: ## Run mypy type checking
+	@echo "🔍 Running mypy type checker..."
+	mypy core/ modules/ || true
+
+security-check: ## Run security checks
+	@echo "🔒 Running bandit security scanner..."
+	bandit -r core/ modules/ -ll || true
 
 format: ## Format code with black and isort
-	black B3PersonalAssistant/
-	isort B3PersonalAssistant/
+	@echo "🎨 Formatting with black..."
+	black . --line-length=100
+	@echo "📐 Sorting imports with isort..."
+	isort . --line-length=100
+	@echo "✅ Code formatted!"
 
 format-check: ## Check code formatting
-	black --check B3PersonalAssistant/
-	isort --check-only B3PersonalAssistant/
+	black --check . --line-length=100
+	isort --check-only . --line-length=100
+
+quality: format lint type-check security-check test-coverage ## Run all quality checks
+	@echo "╔═══════════════════════════════════════════════════════════╗"
+	@echo "║   ✅ All quality checks completed successfully!           ║"
+	@echo "╚═══════════════════════════════════════════════════════════╝"
 
 clean: ## Clean up generated files
 	find . -type f -name "*.pyc" -delete

@@ -203,6 +203,14 @@ LOG_FORMAT: Final[str] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 MAX_LOG_FILE_SIZE_MB: Final[int] = 10
 MAX_LOG_BACKUP_COUNT: Final[int] = 5
 
+# Structured logging configuration
+import os
+LOG_LEVEL: Final[str] = os.environ.get("B3_LOG_LEVEL", DEFAULT_LOG_LEVEL)
+LOG_FILE_PATH: Final[str] = os.environ.get("B3_LOG_FILE", "logs/b3assistant.log")
+LOG_FORMAT_JSON: Final[bool] = os.environ.get("B3_LOG_FORMAT_JSON", "false").lower() == "true"
+LOG_MAX_BYTES: Final[int] = MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convert MB to bytes
+LOG_BACKUP_COUNT: Final[int] = MAX_LOG_BACKUP_COUNT
+
 # ===========================
 # Network Configuration
 # ===========================
