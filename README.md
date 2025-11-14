@@ -73,6 +73,27 @@ docker build -t b3personalassistant .
 docker run -p 8000:8000 b3personalassistant
 ```
 
+## 📥 Download Standalone Executables
+
+**No Python installation required!** Download pre-built executables for your platform:
+
+### Windows
+- [Download Installer](https://github.com/PROF-B3/b3personalassistant/releases) (.exe, ~150 MB)
+- Double-click to install
+- Runs on Windows 10/11
+
+### macOS
+- [Download DMG](https://github.com/PROF-B3/b3personalassistant/releases) (~200 MB)
+- Drag to Applications folder
+- Requires macOS 10.15+
+
+### Linux
+- [Download AppImage](https://github.com/PROF-B3/b3personalassistant/releases) (~400 MB) - Universal
+- [Download DEB](https://github.com/PROF-B3/b3personalassistant/releases) (~180 MB) - Ubuntu/Debian
+- Make executable and run, or install with dpkg
+
+**First run**: The onboarding wizard will guide you through setup automatically.
+
 ## 🖥️ Desktop Application
 
 B3PersonalAssistant includes a powerful **PyQt6 desktop application** designed for academic work, video editing, and writing.
@@ -151,6 +172,7 @@ For detailed desktop app documentation, see [ONBOARDING_GUIDE.md](ONBOARDING_GUI
 | [🚀 Quick Start](QUICK_START.md) | Get up and running in minutes |
 | [👤 User Guide](USER_GUIDE.md) | Complete user manual |
 | [🖥️ Onboarding Guide](ONBOARDING_GUIDE.md) | Desktop app setup and tutorials |
+| [📦 Packaging Guide](PACKAGING_GUIDE.md) | Build standalone executables |
 | [🎬 Video Editing Guide](VIDEO_EDITING_GUIDE.md) | Complete video editing reference |
 | [🎬 Video Workflow](VIDEO_WORKFLOW_GUIDE.md) | AI video processing guide |
 | [📚 Zettelkasten](ZETTELKASTEN.md) | Knowledge management system |
