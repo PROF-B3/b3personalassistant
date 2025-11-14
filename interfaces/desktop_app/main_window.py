@@ -19,7 +19,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from interfaces.desktop_app.utils.theme import get_stylesheet, DARK_THEME
-from interfaces.desktop_app.panels import FileTreePanel, AgentPanel
+from interfaces.desktop_app.panels import FileTreePanel, AgentPanel, ResearchPanel
 from core.orchestrator import Orchestrator
 
 
@@ -250,10 +250,19 @@ class DesktopApp(QMainWindow):
         # Workspace (will change based on mode)
         self.workspace_widget = QWidget()
         self.workspace_layout = QVBoxLayout(self.workspace_widget)
-        self.workspace_layout.setContentsMargins(8, 8, 8, 8)
+        self.workspace_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_layout.setSpacing(0)
 
-        # Placeholder for workspace
-        self.workspace_placeholder = QLabel("Workspace\n(Content will adapt to selected mode)")
+        # Create mode-specific panels
+        self.research_panel = ResearchPanel(self.orchestrator)
+        self.research_panel.citation_extracted.connect(self._on_citation_extracted)
+        self.research_panel.note_created.connect(self._on_note_created)
+        self.research_panel.summarize_requested.connect(self._on_summarize_requested)
+        self.research_panel.setVisible(False)
+        self.workspace_layout.addWidget(self.research_panel)
+
+        # Placeholder for other modes
+        self.workspace_placeholder = QLabel("Workspace\n\nOpen a file to begin\n\nPDF → Research Mode\nVideo → Video Mode\nMarkdown → Writing Mode")
         self.workspace_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workspace_placeholder.setStyleSheet("color: #858585; font-size: 14px;")
         self.workspace_layout.addWidget(self.workspace_placeholder)
@@ -512,6 +521,7 @@ class DesktopApp(QMainWindow):
         self.file_status.setText(Path(file_path).name)
         self.file_opened.emit(file_path)
         self._auto_switch_mode(file_path)
+        self._load_file_in_workspace(file_path)
         self.status_label.setText(f"Opened: {Path(file_path).name}")
 
     def _on_files_imported(self, file_paths: list):
@@ -547,6 +557,70 @@ class DesktopApp(QMainWindow):
     def _on_agent_response_received(self, agent: str, response: str):
         """Handle response received from agent."""
         self.status_label.setText(f"Response from {agent}")
+
+    # Workspace management
+    def _load_file_in_workspace(self, file_path: str):
+        """Load file in appropriate workspace panel."""
+        suffix = Path(file_path).suffix.lower()
+
+        # Hide all panels
+        self.research_panel.setVisible(False)
+        self.workspace_placeholder.setVisible(False)
+
+        if suffix == '.pdf':
+            # Load in research panel
+            success = self.research_panel.load_pdf(file_path)
+            if success:
+                self.research_panel.setVisible(True)
+                self.status_label.setText(f"PDF loaded: {Path(file_path).name}")
+            else:
+                self.workspace_placeholder.setText(
+                    "Failed to load PDF\n\n"
+                    "Install PyMuPDF with:\npip install PyMuPDF"
+                )
+                self.workspace_placeholder.setVisible(True)
+
+        elif suffix in ['.mp4', '.avi', '.mov', '.mkv']:
+            # Video mode (to be implemented)
+            self.workspace_placeholder.setText(
+                "Video Mode\n\n"
+                "Video player will be implemented in Phase 5"
+            )
+            self.workspace_placeholder.setVisible(True)
+
+        elif suffix in ['.md', '.txt']:
+            # Writing mode (to be implemented)
+            self.workspace_placeholder.setText(
+                "Writing Mode\n\n"
+                "Markdown editor will be implemented in Phase 4"
+            )
+            self.workspace_placeholder.setVisible(True)
+
+        else:
+            # Unsupported file type
+            self.workspace_placeholder.setText(
+                f"Unsupported file type: {suffix}\n\n"
+                "Supported: PDF, Video (MP4/AVI/MOV), Markdown (MD/TXT)"
+            )
+            self.workspace_placeholder.setVisible(True)
+
+    # Research panel callbacks
+    def _on_citation_extracted(self, citation_data: dict):
+        """Handle citation extracted."""
+        self.status_label.setText("Citation extracted and added to bibliography")
+
+    def _on_note_created(self, note_content: str):
+        """Handle note created."""
+        self.status_label.setText("Note created from PDF")
+        # Could save to Notes/ folder or pass to Gamma agent
+
+    def _on_summarize_requested(self, text: str):
+        """Handle summarize request."""
+        # Send to Beta agent for summarization
+        self.agent_chat.agent_selector.setCurrentText("Beta (Β)")
+        message = f"Please summarize this text:\n\n{text[:1000]}"
+        self.agent_chat.message_input.setText(message)
+        self.agent_chat._send_message()
 
 
 def launch_desktop_app(user_profile: Optional[Dict] = None, config: Optional[Any] = None):
