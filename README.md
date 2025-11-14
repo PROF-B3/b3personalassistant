@@ -15,11 +15,13 @@ B3PersonalAssistant is a sophisticated multi-agent AI system featuring **7 speci
 ### ✨ Key Features
 
 - **🤖 7 Specialized AI Agents**: Alpha (Chief), Beta (Research), Gamma (Knowledge), Delta (Tasks), Epsilon (Creative), Zeta (Code), Eta (Evolution)
-- **🎬 Advanced Video Processing**: AI-powered video editing with scene detection and collaborative workflows
+- **🖥️ Desktop Application**: PyQt6-based app with Research, Video, and Writing modes
+- **📚 Interactive Onboarding**: First-run wizard and 7 step-by-step tutorials
+- **🎬 Advanced Video Processing**: AI-powered video editing with themes, effects, and prompt-to-video creation
 - **📚 Zettelkasten Integration**: Sophisticated knowledge management system
 - **🗄️ Production Database**: SQLAlchemy-based persistence with conversation history
 - **🔧 Modern DevOps**: Docker, CI/CD, health monitoring, comprehensive testing
-- **🎨 Multiple Interfaces**: CLI and GUI launchers with retro-futuristic themes
+- **🎨 Multiple Interfaces**: Desktop app, CLI, and GUI launchers
 
 ## 🏗️ Architecture
 
@@ -71,15 +73,110 @@ docker build -t b3personalassistant .
 docker run -p 8000:8000 b3personalassistant
 ```
 
+## 📥 Download Standalone Executables
+
+**No Python installation required!** Download pre-built executables for your platform:
+
+### Windows
+- [Download Installer](https://github.com/PROF-B3/b3personalassistant/releases) (.exe, ~150 MB)
+- Double-click to install
+- Runs on Windows 10/11
+
+### macOS
+- [Download DMG](https://github.com/PROF-B3/b3personalassistant/releases) (~200 MB)
+- Drag to Applications folder
+- Requires macOS 10.15+
+
+### Linux
+- [Download AppImage](https://github.com/PROF-B3/b3personalassistant/releases) (~400 MB) - Universal
+- [Download DEB](https://github.com/PROF-B3/b3personalassistant/releases) (~180 MB) - Ubuntu/Debian
+- Make executable and run, or install with dpkg
+
+**First run**: The onboarding wizard will guide you through setup automatically.
+
+## 🖥️ Desktop Application
+
+B3PersonalAssistant includes a powerful **PyQt6 desktop application** designed for academic work, video editing, and writing.
+
+### Features
+
+- **🔬 Research Mode**: PDF viewing, annotation, note-taking
+- **🎬 Video Mode**: Professional video editing with themes and AI-powered effects
+- **✍️ Writing Mode**: Markdown editor with live preview and export
+- **🤖 AI Integration**: Inline AI assistance in all modes
+- **📚 First-Run Onboarding**: Interactive wizard for setup
+- **🎓 Interactive Tutorials**: 7 step-by-step guides covering all features
+
+### Running the Desktop App
+
+```bash
+# Install desktop dependencies
+pip install -r requirements-desktop.txt
+
+# Launch desktop app
+python run_desktop.py
+```
+
+On first run, you'll be greeted with an onboarding wizard that will:
+1. Collect your preferences (name, citation style, theme)
+2. Create your workspace structure
+3. Generate sample files for learning
+4. Provide access to interactive tutorials
+
+### Desktop App Modes
+
+**Research Mode**
+- Open and view PDFs side-by-side
+- Take notes while reading
+- Organize research papers
+- AI-powered research assistance
+
+**Video Mode**
+- Load and preview videos
+- Apply futuristic themes (Neon Cyberpunk, Matrix, Tron, Blade Runner, Synthwave)
+- Export segments with effects
+- Create AI-powered video remixes
+- Generate videos from prompts using assets
+
+**Writing Mode**
+- Full-featured Markdown editor
+- Live preview with syntax highlighting
+- Export to PDF, Word, HTML
+- AI writing assistance
+- Citation management
+
+### Onboarding & Tutorials
+
+The desktop app includes a comprehensive onboarding system:
+
+- **First-Run Wizard**: Set up preferences and workspace
+- **7 Interactive Tutorials**: Learn all features step-by-step
+  - Getting Started (5 min)
+  - Research Mode (7 min)
+  - Writing Mode (8 min)
+  - Video Editing (10 min)
+  - AI Agents (6 min)
+  - Video Creation (10 min)
+  - Organization & Workflow (8 min)
+- **Progress Tracking**: Monitor tutorial completion
+- **Quick Start Guide**: Always accessible from Help menu
+
+Access tutorials anytime from **Help → Interactive Tutorials**
+
+For detailed desktop app documentation, see [ONBOARDING_GUIDE.md](ONBOARDING_GUIDE.md) and [VIDEO_EDITING_GUIDE.md](VIDEO_EDITING_GUIDE.md)
+
 ## 📖 Documentation
 
 | Guide | Description |
 |-------|-------------|
 | [🚀 Quick Start](QUICK_START.md) | Get up and running in minutes |
 | [👤 User Guide](USER_GUIDE.md) | Complete user manual |
-| [🔌 API Documentation](API_DOCS.md) | Developer API reference |
+| [🖥️ Onboarding Guide](ONBOARDING_GUIDE.md) | Desktop app setup and tutorials |
+| [📦 Packaging Guide](PACKAGING_GUIDE.md) | Build standalone executables |
+| [🎬 Video Editing Guide](VIDEO_EDITING_GUIDE.md) | Complete video editing reference |
 | [🎬 Video Workflow](VIDEO_WORKFLOW_GUIDE.md) | AI video processing guide |
 | [📚 Zettelkasten](ZETTELKASTEN.md) | Knowledge management system |
+| [🔌 API Documentation](API_DOCS.md) | Developer API reference |
 | [🔧 Troubleshooting](TROUBLESHOOTING.md) | Common issues and solutions |
 | [🤝 Contributing](CONTRIBUTING.md) | How to contribute |
 
