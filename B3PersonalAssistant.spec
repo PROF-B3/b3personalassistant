@@ -116,8 +116,8 @@ if sys.platform == 'darwin':
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSHighResolutionCapable': 'True',
-            'CFBundleShortVersionString': '1.0.0',
-            'CFBundleVersion': '1.0.0',
+            'CFBundleShortVersionString': '0.1.0-alpha',
+            'CFBundleVersion': '0.1.0',
             'CFBundleDisplayName': 'B3 Personal Assistant',
             'CFBundleName': 'B3PersonalAssistant',
         },

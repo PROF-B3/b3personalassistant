@@ -3,7 +3,7 @@
 ; Download Inno Setup from: https://jrsoftware.org/isdl.php
 
 #define MyAppName "B3 Personal Assistant"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "0.1.0-alpha"
 #define MyAppPublisher "Prof. B3"
 #define MyAppURL "https://github.com/PROF-B3/b3personalassistant"
 #define MyAppExeName "B3PersonalAssistant.exe"

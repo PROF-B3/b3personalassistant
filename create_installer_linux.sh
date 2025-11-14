@@ -10,7 +10,7 @@ echo "=========================================="
 echo
 
 APP_NAME="B3PersonalAssistant"
-VERSION="1.0.0"
+VERSION="0.1.0-alpha"
 ARCH="amd64"  # or i386, arm64, etc.
 
 # Check if executable exists

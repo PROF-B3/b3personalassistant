@@ -9,7 +9,7 @@ echo "=========================================="
 echo
 
 APP_NAME="B3PersonalAssistant"
-VERSION="1.0.0"
+VERSION="0.1.0-alpha"
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 VOLUME_NAME="${APP_NAME} ${VERSION}"
 
