@@ -19,7 +19,7 @@ from PyQt6.QtGui import QAction, QKeySequence
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from interfaces.desktop_app.utils.theme import get_stylesheet, DARK_THEME
-from interfaces.desktop_app.panels import FileTreePanel, AgentPanel, ResearchPanel
+from interfaces.desktop_app.panels import FileTreePanel, AgentPanel, ResearchPanel, WritingPanel
 from core.orchestrator import Orchestrator
 
 
@@ -261,6 +261,13 @@ class DesktopApp(QMainWindow):
         self.research_panel.setVisible(False)
         self.workspace_layout.addWidget(self.research_panel)
 
+        self.writing_panel = WritingPanel(self.orchestrator)
+        self.writing_panel.citation_insert_requested.connect(self._on_citation_insert_requested)
+        self.writing_panel.export_requested.connect(self._on_export_completed)
+        self.writing_panel.writing_help_requested.connect(self._on_writing_help_requested)
+        self.writing_panel.setVisible(False)
+        self.workspace_layout.addWidget(self.writing_panel)
+
         # Placeholder for other modes
         self.workspace_placeholder = QLabel("Workspace\n\nOpen a file to begin\n\nPDF → Research Mode\nVideo → Video Mode\nMarkdown → Writing Mode")
         self.workspace_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -403,7 +410,15 @@ class DesktopApp(QMainWindow):
     def _save_file(self):
         """Save current file."""
         if self.current_file:
-            self.status_label.setText(f"Saved: {Path(self.current_file).name}")
+            # Check which panel is active and save
+            if self.writing_panel.isVisible():
+                success = self.writing_panel.save_file()
+                if success:
+                    self.status_label.setText(f"Saved: {Path(self.current_file).name}")
+                else:
+                    self.status_label.setText("Failed to save file")
+            else:
+                self.status_label.setText(f"Saved: {Path(self.current_file).name}")
         else:
             self._save_file_as()
 
@@ -565,6 +580,7 @@ class DesktopApp(QMainWindow):
 
         # Hide all panels
         self.research_panel.setVisible(False)
+        self.writing_panel.setVisible(False)
         self.workspace_placeholder.setVisible(False)
 
         if suffix == '.pdf':
@@ -580,19 +596,25 @@ class DesktopApp(QMainWindow):
                 )
                 self.workspace_placeholder.setVisible(True)
 
+        elif suffix in ['.md', '.txt']:
+            # Load in writing panel
+            success = self.writing_panel.load_file(file_path)
+            if success:
+                self.writing_panel.setVisible(True)
+                words = self.writing_panel.get_word_count()
+                self.status_label.setText(f"Document loaded: {Path(file_path).name} ({words} words)")
+            else:
+                self.workspace_placeholder.setText(
+                    "Failed to load Markdown file\n\n"
+                    "Check file permissions"
+                )
+                self.workspace_placeholder.setVisible(True)
+
         elif suffix in ['.mp4', '.avi', '.mov', '.mkv']:
             # Video mode (to be implemented)
             self.workspace_placeholder.setText(
                 "Video Mode\n\n"
                 "Video player will be implemented in Phase 5"
-            )
-            self.workspace_placeholder.setVisible(True)
-
-        elif suffix in ['.md', '.txt']:
-            # Writing mode (to be implemented)
-            self.workspace_placeholder.setText(
-                "Writing Mode\n\n"
-                "Markdown editor will be implemented in Phase 4"
             )
             self.workspace_placeholder.setVisible(True)
 
@@ -619,6 +641,24 @@ class DesktopApp(QMainWindow):
         # Send to Beta agent for summarization
         self.agent_chat.agent_selector.setCurrentText("Beta (Β)")
         message = f"Please summarize this text:\n\n{text[:1000]}"
+        self.agent_chat.message_input.setText(message)
+        self.agent_chat._send_message()
+
+    # Writing panel callbacks
+    def _on_citation_insert_requested(self):
+        """Handle citation insert request."""
+        self.status_label.setText("Citation browser will be implemented")
+        # Could open citation browser dialog
+
+    def _on_export_completed(self, format_type: str, file_path: str):
+        """Handle export completed."""
+        self.status_label.setText(f"Exported to {format_type}: {Path(file_path).name}")
+
+    def _on_writing_help_requested(self, text: str):
+        """Handle writing help request."""
+        # Send to Epsilon agent for writing improvement
+        self.agent_chat.agent_selector.setCurrentText("Epsilon (Ε)")
+        message = f"Please improve this text and suggest enhancements:\n\n{text[:500]}"
         self.agent_chat.message_input.setText(message)
         self.agent_chat._send_message()
 
