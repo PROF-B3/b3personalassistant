@@ -153,29 +153,21 @@ class AgentBase:
 
     def store_conversation(self, user_input: str, agent_response: str):
         """
+        DEPRECATED: This method is deprecated. Use ConversationManager instead.
+
         Store a conversation exchange in the SQLite database.
 
         Args:
             user_input: The user's input text
             agent_response: The agent's response text
 
-        Raises:
-            ConversationStorageError: If storing conversation fails
-
         Note:
-            Conversations are stored with timestamps for analysis and debugging.
+            This method is kept for backwards compatibility but does nothing.
+            ConversationManager in modules/conversation.py handles conversation storage.
         """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''INSERT INTO conversations (agent, user_input, agent_response, timestamp) VALUES (?, ?, ?, ?)''',
-                      (self.name, user_input, agent_response, datetime.now().isoformat()))
-            conn.commit()
-            conn.close()
-        except sqlite3.Error as e:
-            self.logger.error(f"Failed to store conversation for agent {self.name}: {e}")
-            from core.exceptions import ConversationStorageError
-            raise ConversationStorageError(f"Could not store conversation: {e}") from e
+        # No-op: ConversationManager handles all conversation storage
+        self.logger.debug(f"{self.name}: store_conversation called (deprecated, no-op)")
+        pass
 
     def save_conversation(self, role: str, message: str):
         """
@@ -200,23 +192,10 @@ class AgentBase:
             List of conversation messages with role and content
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''SELECT user_input, agent_response FROM conversations
-                        WHERE agent = ? ORDER BY id DESC LIMIT ?''',
-                     (self.name, limit // 2))
-            rows = c.fetchall()
-            conn.close()
-
-            # Convert to message format
-            history = []
-            for user_input, agent_response in reversed(rows):
-                if user_input:
-                    history.append({'role': 'user', 'message': user_input})
-                if agent_response:
-                    history.append({'role': 'assistant', 'message': agent_response})
-
-            return history[-limit:]  # Return only the last 'limit' messages
+            # DEPRECATED: Old schema no longer used
+            # ConversationManager handles all conversation retrieval
+            self.logger.debug(f"{self.name}: get_conversation_history called (deprecated)")
+            return []  # Return empty history for now
         except Exception as e:
             self.logger.error(f"Error retrieving conversation history: {e}")
             return []

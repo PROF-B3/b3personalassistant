@@ -135,8 +135,19 @@ class Orchestrator:
                 result = self._multi_agent_process(required_agents, user_input, context)
             
             # Store conversation
-            self.conversation_manager.add_message("user", user_input)
-            self.conversation_manager.add_message("assistant", result)
+            # Create or reuse session for this conversation
+            if not hasattr(self, '_current_session_id'):
+                self._current_session_id = self.conversation_manager.start_conversation_session(
+                    agent_name="Alpha",  # Use Alpha as default orchestrator agent
+                    topic="General conversation"
+                )
+
+            self.conversation_manager.add_message(
+                session_id=self._current_session_id,
+                agent_name="Alpha",
+                user_message=user_input,
+                agent_response=result
+            )
             
             self._update_gui_status("Request completed")
             return result
