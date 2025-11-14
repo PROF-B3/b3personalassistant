@@ -66,6 +66,21 @@
             background-clip: text;
         }
 
+        .ascii-logo {
+            font-size: 0.5em;
+            line-height: 1;
+            color: var(--text-primary);
+            margin: 0;
+            text-shadow: 0 0 10px var(--text-primary);
+        }
+
+        .ascii-art {
+            color: var(--text-primary);
+            line-height: 1.2;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
         .status-bar {
             display: flex;
             gap: 20px;
@@ -587,8 +602,13 @@
         <!-- Header -->
         <div class="header">
             <div class="logo">
-                <div class="logo-text">B3</div>
-                <span style="color: var(--text-muted);">Personal Assistant Terminal</span>
+                <pre class="ascii-logo">
+ ____  _____
+| __ )|___ /
+|  _ \  |_ \
+| |_) |___) |
+|____/|____/ </pre>
+                <span style="color: var(--text-muted); margin-left: 10px;">Personal Assistant Terminal</span>
             </div>
             <div class="status-bar">
                 <div class="status-item">

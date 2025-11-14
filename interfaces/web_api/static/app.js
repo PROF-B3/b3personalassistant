@@ -24,6 +24,7 @@ class B3Assistant {
 
     init() {
         console.log('🚀 Initializing B3 Assistant...');
+        this.showWelcomeMessage();
         this.setupWebSocket();
         this.setupEventListeners();
         this.setupPanelResizers();
@@ -31,6 +32,40 @@ class B3Assistant {
         this.startPerformanceMonitoring();
         this.updateSystemTime();
         this.loadInitialData();
+    }
+
+    showWelcomeMessage() {
+        const messagesContainer = document.getElementById('messages');
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.className = 'message system-message';
+
+        const asciiArt = `
+ ____  _____   ____                                   _      _            _     _              _
+| __ )|___ /  |  _ \\ ___ _ __ ___  ___  _ __   __ _| |    / \\   ___ ___(_)___| |_ __ _ _ __ | |_
+|  _ \\  |_ \\  | |_) / _ \\ '__/ __|/ _ \\| '_ \\ / _\` | |   / _ \\ / __/ __| / __| __/ _\` | '_ \\| __|
+| |_) |___) | |  __/  __/ |  \\__ \\ (_) | | | | (_| | |  / ___ \\\\__ \\__ \\ \\__ \\ || (_| | | | | |_
+|____/|____/  |_|   \\___|_|  |___/\\___/|_| |_|\\__,_|_| /_/   \\_\\___/___/_|___/\\__\\__,_|_| |_|\\__|
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║  Welcome to B3 Personal Assistant - Your Intelligent Terminal Interface                     ║
+║                                                                                              ║
+║  ⚡ Three powerful panels at your command                                                   ║
+║  🧠 Context-aware assistance with semantic search                                           ║
+║  🤖 Proactive agents monitoring your workflow                                               ║
+║  🔧 Integrated email, calendar, and voice capabilities                                      ║
+║                                                                                              ║
+║  💡 Tips:                                                                                    ║
+║     • Press Ctrl+K to open command palette                                                  ║
+║     • Click navigation items to switch views                                                ║
+║     • Drag panel edges to resize                                                            ║
+║     • Click suggestions to auto-fill your message                                           ║
+║                                                                                              ║
+║  Type your message below to get started...                                                  ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+`;
+
+        welcomeDiv.innerHTML = `<pre class="ascii-art">${asciiArt}</pre>`;
+        messagesContainer.appendChild(welcomeDiv);
     }
 
     updateSystemTime() {
@@ -354,6 +389,17 @@ class B3Assistant {
     }
 
     startPerformanceMonitoring() {
+        // Add initial system boot log with ASCII art
+        this.addAgentLog('success', '╔════════════════════════════╗', 'SYSTEM');
+        this.addAgentLog('success', '║   B3 SYSTEMS ONLINE ✓     ║', 'SYSTEM');
+        this.addAgentLog('success', '╚════════════════════════════╝', 'SYSTEM');
+        this.addAgentLog('info', 'Initializing agent subsystems...', 'SYSTEM');
+        this.addAgentLog('success', '► ProactiveAgent loaded', 'ProactiveAgent');
+        this.addAgentLog('success', '► WorkflowEngine loaded', 'WorkflowEngine');
+        this.addAgentLog('success', '► SemanticSearch loaded', 'SemanticSearch');
+        this.addAgentLog('success', '► ContextManager loaded', 'ContextManager');
+        this.addAgentLog('info', '⚡ All systems operational', 'SYSTEM');
+
         // Simulate performance data updates
         setInterval(() => {
             const value = Math.random() * 100 + 50; // 50-150ms
@@ -368,7 +414,13 @@ class B3Assistant {
             'Searching indexed content',
             'Executing workflow',
             'Analyzing patterns',
-            'Generating suggestion'
+            'Generating suggestion',
+            'Cache hit on recent query',
+            'Indexing new document',
+            'Pattern match detected',
+            'Workflow step completed',
+            'Context window optimized',
+            'Semantic embedding cached'
         ];
         const levels = ['info', 'success', 'warning'];
 
@@ -429,8 +481,30 @@ class B3Assistant {
         const header = document.querySelector('.chat-panel .panel-header');
         header.textContent = viewNames[view] || view;
 
-        // Add system message
-        this.addSystemMessage(`Switched to ${view} view`);
+        // Add system message with ASCII decoration
+        const asciiHeaders = {
+            'chat': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  💬 CHAT MODE ACTIVATED\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'context': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  🧠 CONTEXT MANAGER\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'search': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  🔍 SEMANTIC SEARCH\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'workflows': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  ⚙️  WORKFLOW ENGINE\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'email': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  📧 EMAIL INTEGRATION\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'calendar': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  📅 CALENDAR SYNC\n━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'voice': '━━━━━━━━━━━━━━━━━━━━━━━━━\n  🎤 VOICE INTERFACE\n━━━━━━━━━━━━━━━━━━━━━━━━━'
+        };
+
+        if (asciiHeaders[view]) {
+            const messagesContainer = document.getElementById('messages');
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'message system-message';
+            headerDiv.innerHTML = `<pre class="ascii-art">${asciiHeaders[view]}</pre>`;
+            messagesContainer.appendChild(headerDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else {
+            this.addSystemMessage(`Switched to ${view} view`);
+        }
+
+        // Add agent log
+        this.addAgentLog('info', `View changed to ${view}`, 'SYSTEM');
 
         // Load view-specific data
         this.loadViewData(view);
