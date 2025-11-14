@@ -180,6 +180,16 @@ class DesktopApp(QMainWindow):
         # Help menu
         help_menu = menubar.addMenu("&Help")
 
+        tutorials_action = QAction("📚 &Interactive Tutorials", self)
+        tutorials_action.triggered.connect(self._show_tutorials)
+        help_menu.addAction(tutorials_action)
+
+        quick_start_action = QAction("🚀 &Quick Start Guide", self)
+        quick_start_action.triggered.connect(self._show_quick_start)
+        help_menu.addAction(quick_start_action)
+
+        help_menu.addSeparator()
+
         about_action = QAction("&About", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
@@ -553,6 +563,41 @@ class DesktopApp(QMainWindow):
             <p>Ctrl+K - Cut Segment</p>
             """
         )
+
+    def _show_tutorials(self):
+        """Show interactive tutorials dialog."""
+        try:
+            from interfaces.desktop_app.dialogs.tutorial_dialog import show_tutorial_list
+            show_tutorial_list(self)
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Tutorials",
+                f"Could not load tutorials:\n{str(e)}"
+            )
+
+    def _show_quick_start(self):
+        """Show quick start guide."""
+        from pathlib import Path
+        quick_start_path = Path.home() / "B3Workspace" / "QuickStart.md"
+
+        if quick_start_path.exists():
+            # Open in writing mode
+            self._load_file_in_workspace(str(quick_start_path))
+            self.mode_combo.setCurrentText("Writing")
+        else:
+            # Show in dialog if file doesn't exist
+            QMessageBox.information(
+                self,
+                "Quick Start Guide",
+                "Welcome to B3 Personal Assistant!\n\n"
+                "Quick tips:\n"
+                "• Press Ctrl+1/2/3 to switch modes\n"
+                "• Drag & drop files to import\n"
+                "• Press Ctrl+Space to focus AI chat\n"
+                "• Try Help → Interactive Tutorials\n\n"
+                "Check out the documentation files in the project root!"
+            )
 
     # File tree callbacks
     def _on_file_opened_from_tree(self, file_path: str):

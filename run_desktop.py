@@ -76,23 +76,42 @@ def main():
     if not check_dependencies():
         return 1
 
-    print("Starting application...")
-    print()
-
     # Import and launch
     try:
+        from PyQt6.QtWidgets import QApplication
         from interfaces.desktop_app.main_window import launch_desktop_app
+        from modules.onboarding import OnboardingManager
+        from interfaces.desktop_app.dialogs.onboarding_wizard import show_onboarding_wizard
 
-        # Create default user profile
-        user_profile = {
-            "name": "User",
-            "preferences": {
-                "theme": "dark",
-                "auto_save": True
-            }
-        }
+        # Create QApplication early for wizard
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+            app.setApplicationName("B3 Personal Assistant")
+            app.setOrganizationName("B3")
 
-        # Launch app
+        # Check for first run and show onboarding
+        onboarding_manager = OnboardingManager()
+
+        if onboarding_manager.is_first_run():
+            print("First run detected - showing onboarding wizard...")
+            wizard_completed = show_onboarding_wizard()
+
+            if not wizard_completed:
+                print("Onboarding cancelled")
+                return 0
+
+            print("Onboarding completed!")
+            print()
+
+        # Load user preferences
+        user_profile = onboarding_manager.preferences.to_dict()
+
+        print("Starting application...")
+        print(f"Welcome, {user_profile['name']}!")
+        print()
+
+        # Launch app with user profile
         return launch_desktop_app(user_profile)
 
     except Exception as e:
