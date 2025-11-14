@@ -129,16 +129,16 @@ class AgentBase:
     def _ensure_db(self):
         """
         Ensure the SQLite conversation database exists with proper schema.
-        
+
         Creates the conversations table if it doesn't exist, with columns for:
         - id: Primary key
         - agent: Agent name
         - user_input: User's input text
         - agent_response: Agent's response
         - timestamp: ISO format timestamp
-        
+
         Raises:
-            Exception: If database creation fails
+            DatabaseException: If database creation fails
         """
         try:
             conn = sqlite3.connect(self.db_path)
@@ -152,8 +152,10 @@ class AgentBase:
             )''')
             conn.commit()
             conn.close()
-        except Exception as e:
-            self.logger.error(f"DB init error: {e}")
+        except sqlite3.Error as e:
+            self.logger.error(f"Database initialization error for agent {self.name}: {e}")
+            from core.exceptions import DatabaseException
+            raise DatabaseException(f"Failed to initialize database for agent {self.name}: {e}") from e
 
     def store_conversation(self, user_input: str, agent_response: str):
         """
@@ -162,6 +164,9 @@ class AgentBase:
         Args:
             user_input: The user's input text
             agent_response: The agent's response text
+
+        Raises:
+            ConversationStorageError: If storing conversation fails
 
         Note:
             Conversations are stored with timestamps for analysis and debugging.
@@ -173,8 +178,10 @@ class AgentBase:
                       (self.name, user_input, agent_response, datetime.now().isoformat()))
             conn.commit()
             conn.close()
-        except Exception as e:
-            self.logger.error(f"DB store error: {e}")
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to store conversation for agent {self.name}: {e}")
+            from core.exceptions import ConversationStorageError
+            raise ConversationStorageError(f"Could not store conversation: {e}") from e
 
     def save_conversation(self, role: str, message: str):
         """

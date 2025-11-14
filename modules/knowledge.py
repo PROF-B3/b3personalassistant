@@ -38,9 +38,14 @@ class Zettel:
 
 class ZettelkastenSystem:
     """Main Zettelkasten knowledge management system."""
-    
-    def __init__(self, base_path: str = "X"):
-        self.base_path = Path(base_path)
+
+    def __init__(self, base_path: Optional[str] = None):
+        # Use configurable path with sensible default
+        if base_path is None:
+            # Check environment variable first, then use default
+            base_path = os.environ.get('B3_ZETTELKASTEN_PATH', 'knowledge_base')
+
+        self.base_path = Path(base_path).resolve()
         self.db_path = self.base_path / "_metadata" / "zettelkasten.db"
         self._ensure_directories()
         self._init_database()

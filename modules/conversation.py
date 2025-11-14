@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 import hashlib
 import uuid
 
+from core.exceptions import DatabaseException
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -230,42 +232,60 @@ class ConversationManager:
                                context_summary: str = "") -> bool:
         """End a conversation session with optional feedback."""
         now = datetime.now().isoformat()
-        
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            update_fields = ["end_time = ?"]
-            params = [now]
-            
-            if sentiment:
-                update_fields.append("sentiment = ?")
-                params.append(sentiment.value)
-            
-            if quality_score:
-                update_fields.append("quality_score = ?")
-                params.append(quality_score.value)
-            
-            if user_satisfaction is not None:
-                update_fields.append("user_satisfaction = ?")
-                params.append(str(user_satisfaction))
-            
-            if context_summary is None:
-                context_summary = ""
-            update_fields.append("context_summary = ?")
-            params.append(context_summary)
-            
-            params.append(session_id)
-            
-            cursor.execute(f"""
-                UPDATE conversation_metadata 
-                SET {', '.join(update_fields)}
-                WHERE session_id = ?
-            """, params)
-            
-            conn.commit()
-        
-        logger.info(f"Ended conversation session {session_id}")
-        return True
+
+        # Whitelist of allowed update fields for security
+        ALLOWED_UPDATE_FIELDS = {'end_time', 'sentiment', 'quality_score', 'user_satisfaction', 'context_summary'}
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                update_fields = ["end_time = ?"]
+                params = [now]
+
+                if sentiment:
+                    if 'sentiment' not in ALLOWED_UPDATE_FIELDS:
+                        raise ValueError("Invalid field: sentiment")
+                    update_fields.append("sentiment = ?")
+                    params.append(sentiment.value)
+
+                if quality_score:
+                    if 'quality_score' not in ALLOWED_UPDATE_FIELDS:
+                        raise ValueError("Invalid field: quality_score")
+                    update_fields.append("quality_score = ?")
+                    params.append(quality_score.value)
+
+                if user_satisfaction is not None:
+                    if 'user_satisfaction' not in ALLOWED_UPDATE_FIELDS:
+                        raise ValueError("Invalid field: user_satisfaction")
+                    update_fields.append("user_satisfaction = ?")
+                    params.append(str(user_satisfaction))
+
+                if context_summary is None:
+                    context_summary = ""
+                if 'context_summary' not in ALLOWED_UPDATE_FIELDS:
+                    raise ValueError("Invalid field: context_summary")
+                update_fields.append("context_summary = ?")
+                params.append(context_summary)
+
+                params.append(session_id)
+
+                cursor.execute(f"""
+                    UPDATE conversation_metadata
+                    SET {', '.join(update_fields)}
+                    WHERE session_id = ?
+                """, params)
+
+                conn.commit()
+
+            logger.info(f"Ended conversation session {session_id}")
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Database error ending conversation session {session_id}: {e}")
+            raise DatabaseException(f"Failed to end conversation session: {e}") from e
+        except ValueError as e:
+            logger.error(f"Invalid field in update: {e}")
+            raise
     
     def get_conversation_session(self, session_id: str) -> Optional[ConversationSession]:
         """Retrieve a conversation session with all metadata."""

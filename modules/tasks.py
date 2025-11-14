@@ -435,31 +435,55 @@ class TaskManager:
         return True
     
     def _would_create_circular_dependency(self, task_id: int, depends_on_id: int) -> bool:
-        """Check if adding a dependency would create a circular dependency."""
+        """
+        Check if adding a dependency would create a circular dependency.
+
+        Optimized version that fetches all dependencies once and performs
+        graph traversal in memory using BFS.
+
+        Args:
+            task_id: The task that would depend on depends_on_id
+            depends_on_id: The task that task_id would depend on
+
+        Returns:
+            True if adding this dependency would create a cycle
+        """
+        # Fetch all dependencies in one query
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT task_id, depends_on_id FROM task_dependencies
+            """)
+            all_deps = cursor.fetchall()
+
+        # Build adjacency list (dependency graph)
+        graph = {}
+        for t_id, dep_id in all_deps:
+            if t_id not in graph:
+                graph[t_id] = []
+            graph[t_id].append(dep_id)
+
+        # Check if adding (task_id -> depends_on_id) would create a cycle
+        # by checking if there's already a path from depends_on_id to task_id
         visited = set()
-        
-        def has_path_to(start: int, target: int) -> bool:
-            if start == target:
-                return True
-            
-            if start in visited:
-                return False
-            
-            visited.add(start)
-            
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT depends_on_id FROM task_dependencies WHERE task_id = ?
-                """, (start,))
-                
-                for (dep_id,) in cursor.fetchall():
-                    if has_path_to(dep_id, target):
-                        return True
-            
-            return False
-        
-        return has_path_to(depends_on_id, task_id)
+        queue = [depends_on_id]
+
+        while queue:
+            current = queue.pop(0)
+
+            if current == task_id:
+                return True  # Found a path - would create cycle
+
+            if current in visited:
+                continue
+
+            visited.add(current)
+
+            # Add all dependencies of current task to queue
+            if current in graph:
+                queue.extend(graph[current])
+
+        return False  # No path found - safe to add dependency
     
     def get_dependencies(self, task_id: int) -> List[Task]:
         """Get all tasks that the given task depends on."""

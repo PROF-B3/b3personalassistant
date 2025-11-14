@@ -25,6 +25,7 @@ from core.agents import AlphaAgent, BetaAgent, GammaAgent, DeltaAgent, EpsilonAg
 from modules.knowledge import KnowledgeManager, ZettelkastenSystem
 from modules.tasks import TaskManager
 from modules.conversation import ConversationManager
+from core.exceptions import InputValidationError, OllamaConnectionError, CircuitBreakerOpenError
 
 class Orchestrator:
     """
@@ -139,10 +140,17 @@ class Orchestrator:
             
             self._update_gui_status("Request completed")
             return result
-            
+
+        except (InputValidationError, OllamaConnectionError, CircuitBreakerOpenError) as e:
+            # Known errors - return user-friendly message
+            error_msg = f"Request failed: {str(e)}"
+            self.logger.warning(f"Request failed with known error: {e}")
+            self._update_gui_status("Request failed")
+            return error_msg
         except Exception as e:
-            error_msg = f"Orchestrator error: {e}"
-            self.logger.error(error_msg)
+            # Unexpected errors - log full traceback and return generic message
+            error_msg = "An unexpected error occurred while processing your request"
+            self.logger.exception(f"Unexpected orchestrator error: {e}")
             self._update_gui_status("Error occurred")
             return error_msg
 

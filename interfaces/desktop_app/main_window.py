@@ -429,7 +429,7 @@ class DesktopApp(QMainWindow):
         QMessageBox.information(self, "New File", "New file creation will be implemented soon.")
 
     def _open_file(self):
-        """Open file dialog."""
+        """Open file dialog with path validation."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Open File",
@@ -437,10 +437,39 @@ class DesktopApp(QMainWindow):
             "All Files (*);;PDF Files (*.pdf);;Video Files (*.mp4 *.avi *.mov);;Markdown Files (*.md)"
         )
         if file_path:
-            self.current_file = file_path
-            self.file_status.setText(Path(file_path).name)
-            self.file_opened.emit(file_path)
-            self._auto_switch_mode(file_path)
+            # Validate and sanitize file path
+            try:
+                validated_path = Path(file_path).resolve()
+
+                # Security checks
+                if not validated_path.exists():
+                    QMessageBox.warning(self, "Invalid File", "The selected file does not exist.")
+                    return
+
+                if not validated_path.is_file():
+                    QMessageBox.warning(self, "Invalid File", "The selected path is not a file.")
+                    return
+
+                # Check file size (warn if > 100MB)
+                file_size_mb = validated_path.stat().st_size / (1024 * 1024)
+                if file_size_mb > 100:
+                    reply = QMessageBox.question(
+                        self,
+                        "Large File",
+                        f"The file is {file_size_mb:.1f}MB. Opening large files may take time. Continue?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+
+                self.current_file = str(validated_path)
+                self.file_status.setText(validated_path.name)
+                self.file_opened.emit(str(validated_path))
+                self._auto_switch_mode(str(validated_path))
+
+            except (OSError, ValueError) as e:
+                QMessageBox.critical(self, "Error", f"Invalid file path: {e}")
+                return
 
     def _save_file(self):
         """Save current file."""

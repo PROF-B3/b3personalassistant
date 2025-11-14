@@ -263,10 +263,7 @@ def retry_with_backoff(
 
 def timeout(seconds: float) -> Callable:
     """
-    Decorator to add timeout to a function.
-
-    Note: This is a simple implementation. For production, consider using
-    signals or threading for more robust timeout handling.
+    Decorator to add timeout to a function using threading.
 
     Args:
         seconds: Timeout in seconds
@@ -274,17 +271,43 @@ def timeout(seconds: float) -> Callable:
     Returns:
         Decorator function
 
+    Raises:
+        OllamaTimeoutError: If function execution exceeds timeout
+
     Example:
         >>> @timeout(30.0)
         ... def slow_operation():
         ...     return ollama_client.chat(...)
     """
+    import threading
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args, **kwargs) -> T:
-            # For now, we'll rely on Ollama client's timeout
-            # A more robust implementation would use threading.Timer or signals
-            return func(*args, **kwargs)
+            result = [None]
+            exception = [None]
+
+            def target():
+                try:
+                    result[0] = func(*args, **kwargs)
+                except Exception as e:
+                    exception[0] = e
+
+            thread = threading.Thread(target=target)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout=seconds)
+
+            if thread.is_alive():
+                # Thread is still running - timeout occurred
+                logger.warning(f"Function {func.__name__} timed out after {seconds}s")
+                from core.exceptions import OllamaTimeoutError
+                raise OllamaTimeoutError(f"Operation timed out after {seconds} seconds")
+
+            if exception[0] is not None:
+                raise exception[0]
+
+            return result[0]
         return wrapper
     return decorator
 
