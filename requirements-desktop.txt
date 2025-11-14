@@ -1,0 +1,27 @@
+# B3 Personal Assistant - Desktop App Dependencies
+
+# Qt Framework for GUI
+PyQt6>=6.6.0
+PyQt6-WebEngine>=6.6.0
+
+# PDF Processing
+PyMuPDF>=1.23.0  # PDF viewing and rendering
+
+# Video Processing
+moviepy>=1.0.3
+scenedetect[opencv]>=0.6.2
+opencv-python>=4.8.0
+
+# Image Processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Markdown Processing
+markdown>=3.5.0
+pymdown-extensions>=10.4
+
+# Syntax Highlighting
+Pygments>=2.16.0
+
+# Document Export
+python-docx>=1.1.0  # Word export
