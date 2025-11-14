@@ -3,7 +3,7 @@
 # Qt Framework for GUI
 PyQt6>=6.6.0
 PyQt6-WebEngine>=6.6.0
-PyQt6-Multimedia>=6.6.0  # Video playback
+# PyQt6-Multimedia>=6.6.0  # Video playback (optional, not available for Python 3.13)
 
 # PDF Processing
 PyMuPDF>=1.23.0  # PDF viewing and rendering

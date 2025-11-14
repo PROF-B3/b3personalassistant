@@ -8,11 +8,11 @@ import os
 from pathlib import Path
 from typing import Optional, Callable
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTreeView, QFileSystemModel,
+    QWidget, QVBoxLayout, QTreeView,
     QLineEdit, QLabel, QMenu, QMessageBox
 )
 from PyQt6.QtCore import Qt, QDir, QModelIndex, pyqtSignal
-from PyQt6.QtGui import QAction, QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QAction, QDragEnterEvent, QDropEvent, QFileSystemModel
 
 
 class FileTreePanel(QWidget):
