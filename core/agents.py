@@ -124,50 +124,6 @@ class AgentBase:
         self.MessagePriority = MessagePriority
         self.AgentMessage = AgentMessage
 
-        self._ensure_db()
-
-    def _ensure_db(self):
-        """
-        Ensure the SQLite conversation database exists with proper schema.
-
-        Creates the conversations table if it doesn't exist, with columns for:
-        - id: Primary key
-        - agent: Agent name
-        - user_input: User's input text
-        - agent_response: Agent's response
-        - timestamp: ISO format timestamp
-
-        Raises:
-            DatabaseException: If database creation fails
-        """
-        # DEPRECATED: Table creation moved to ConversationManager (modules/conversation.py)
-        # The ConversationManager now creates a conversations table with enhanced schema:
-        # - session_id, agent_name, user_message, agent_response, timestamp, context, message_type, metadata
-        #
-        # This old schema (agent, user_input, agent_response, timestamp) is no longer used.
-        # BaseAgent methods (store_conversation, get_recent_conversations) are kept for backwards
-        # compatibility but should be migrated to use ConversationManager.
-        #
-        # TODO: Update store_conversation() and get_recent_conversations() to use ConversationManager
-        pass
-
-    def store_conversation(self, user_input: str, agent_response: str):
-        """
-        DEPRECATED: This method is deprecated. Use ConversationManager instead.
-
-        Store a conversation exchange in the SQLite database.
-
-        Args:
-            user_input: The user's input text
-            agent_response: The agent's response text
-
-        Note:
-            This method is kept for backwards compatibility but does nothing.
-            ConversationManager in modules/conversation.py handles conversation storage.
-        """
-        # No-op: ConversationManager handles all conversation storage
-        self.logger.debug(f"{self.name}: store_conversation called (deprecated, no-op)")
-        pass
 
     def save_conversation(self, role: str, message: str):
         """
@@ -183,22 +139,12 @@ class AgentBase:
 
     def get_conversation_history(self, limit: int = 10) -> List[Dict[str, str]]:
         """
-        Retrieve recent conversation history from database.
+        Get conversation history. Returns empty list - use ConversationManager for full history.
 
-        Args:
-            limit: Maximum number of messages to retrieve
-
-        Returns:
-            List of conversation messages with role and content
+        Note: This method is kept for backward compatibility with agent implementations.
+        For full conversation management, use modules.conversation.ConversationManager.
         """
-        try:
-            # DEPRECATED: Old schema no longer used
-            # ConversationManager handles all conversation retrieval
-            self.logger.debug(f"{self.name}: get_conversation_history called (deprecated)")
-            return []  # Return empty history for now
-        except Exception as e:
-            self.logger.error(f"Error retrieving conversation history: {e}")
-            return []
+        return []
 
     def send_message(self, to_agent: str, message: str, context: Optional[Dict] = None) -> Optional[str]:
         """
@@ -1261,7 +1207,7 @@ class DeltaAgent(AgentBase):
         # Initialize task management system
         self.task_manager = task_manager
         if self.task_manager is None:
-            from modules.task_management import create_task_manager
+            from modules.tasks import create_task_manager
             self.task_manager = create_task_manager()
 
     def system_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
@@ -1297,7 +1243,7 @@ Always help users stay organized and productive with clear, actionable task mana
             Response string if command was handled, None otherwise
         """
         import re
-        from modules.task_management import TaskPriority, TaskStatus
+        from modules.tasks import Priority as TaskPriority, Status as TaskStatus
         from datetime import datetime, timedelta
 
         input_lower = input_text.lower()

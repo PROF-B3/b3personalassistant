@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from modules.task_management import TaskManager, TaskPriority, TaskStatus
+from modules.tasks import TaskManager, Priority as TaskPriority, Status as TaskStatus
 from core.code_generation_tracker import CodeGenerationTracker, ChangeType, ChangeStatus
 from core.self_improvement import get_improvement_engine, ImprovementType, ImprovementPriority
 from core.agents import DeltaAgent, ZetaAgent, EtaAgent
