@@ -129,31 +129,37 @@ class AgentBase:
     def _ensure_db(self):
         """
         Ensure the SQLite conversation database exists with proper schema.
-        
+
         Creates the conversations table if it doesn't exist, with columns for:
         - id: Primary key
         - agent: Agent name
         - user_input: User's input text
         - agent_response: Agent's response
         - timestamp: ISO format timestamp
-        
+
         Raises:
-            Exception: If database creation fails
+            sqlite3.Error: If database creation fails
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                agent TEXT,
-                user_input TEXT,
-                agent_response TEXT,
-                timestamp TEXT
-            )''')
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute('''CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    agent TEXT,
+                    user_input TEXT,
+                    agent_response TEXT,
+                    timestamp TEXT
+                )''')
+                # Create index for better query performance
+                c.execute('''CREATE INDEX IF NOT EXISTS idx_agent_timestamp
+                           ON conversations(agent, timestamp DESC)''')
+                conn.commit()
+        except sqlite3.Error as e:
+            self.logger.error(f"Database initialization error for {self.name}: {e}")
+            raise
         except Exception as e:
-            self.logger.error(f"DB init error: {e}")
+            self.logger.exception(f"Unexpected error initializing database: {e}")
+            raise
 
     def store_conversation(self, user_input: str, agent_response: str):
         """
@@ -165,16 +171,24 @@ class AgentBase:
 
         Note:
             Conversations are stored with timestamps for analysis and debugging.
+
+        Raises:
+            sqlite3.Error: If database operation fails
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''INSERT INTO conversations (agent, user_input, agent_response, timestamp) VALUES (?, ?, ?, ?)''',
-                      (self.name, user_input, agent_response, datetime.now().isoformat()))
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute(
+                    '''INSERT INTO conversations (agent, user_input, agent_response, timestamp)
+                       VALUES (?, ?, ?, ?)''',
+                    (self.name, user_input, agent_response, datetime.now().isoformat())
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to store conversation for {self.name}: {e}")
+            # Don't raise - this is not critical to agent operation
         except Exception as e:
-            self.logger.error(f"DB store error: {e}")
+            self.logger.exception(f"Unexpected error storing conversation: {e}")
 
     def save_conversation(self, role: str, message: str):
         """
@@ -196,16 +210,18 @@ class AgentBase:
             limit: Maximum number of messages to retrieve
 
         Returns:
-            List of conversation messages with role and content
+            List of conversation messages with role and content.
+            Returns empty list if database operation fails.
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''SELECT user_input, agent_response FROM conversations
-                        WHERE agent = ? ORDER BY id DESC LIMIT ?''',
-                     (self.name, limit // 2))
-            rows = c.fetchall()
-            conn.close()
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute(
+                    '''SELECT user_input, agent_response FROM conversations
+                       WHERE agent = ? ORDER BY id DESC LIMIT ?''',
+                    (self.name, limit // 2)
+                )
+                rows = c.fetchall()
 
             # Convert to message format
             history = []
@@ -216,8 +232,11 @@ class AgentBase:
                     history.append({'role': 'assistant', 'message': agent_response})
 
             return history[-limit:]  # Return only the last 'limit' messages
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to retrieve conversation history for {self.name}: {e}")
+            return []
         except Exception as e:
-            self.logger.error(f"Error retrieving conversation history: {e}")
+            self.logger.exception(f"Unexpected error retrieving conversation history: {e}")
             return []
 
     def send_message(self, to_agent: str, message: str, context: Optional[Dict] = None) -> Optional[str]:

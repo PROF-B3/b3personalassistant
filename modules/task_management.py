@@ -132,67 +132,76 @@ class TaskManager:
 
     def _init_db(self):
         """Initialize SQLite database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        # Tasks table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tasks (
-                task_id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT,
-                status TEXT NOT NULL,
-                priority INTEGER NOT NULL,
-                created_at REAL NOT NULL,
-                due_date REAL,
-                scheduled_start REAL,
-                completed_at REAL,
-                progress REAL DEFAULT 0.0,
-                estimated_hours REAL,
-                actual_hours REAL,
-                tags TEXT,
-                category TEXT,
-                project TEXT,
-                dependencies TEXT,
-                blocked_by TEXT,
-                assigned_to TEXT,
-                created_by TEXT,
-                notes TEXT,
-                subtasks TEXT,
-                metadata TEXT
-            )
-        ''')
+                # Tasks table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS tasks (
+                        task_id TEXT PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        status TEXT NOT NULL,
+                        priority INTEGER NOT NULL,
+                        created_at REAL NOT NULL,
+                        due_date REAL,
+                        scheduled_start REAL,
+                        completed_at REAL,
+                        progress REAL DEFAULT 0.0,
+                        estimated_hours REAL,
+                        actual_hours REAL,
+                        tags TEXT,
+                        category TEXT,
+                        project TEXT,
+                        dependencies TEXT,
+                        blocked_by TEXT,
+                        assigned_to TEXT,
+                        created_by TEXT,
+                        notes TEXT,
+                        subtasks TEXT,
+                        metadata TEXT
+                    )
+                ''')
 
-        # Projects table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS projects (
-                project_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT,
-                created_at REAL NOT NULL,
-                deadline REAL,
-                status TEXT,
-                metadata TEXT
-            )
-        ''')
+                # Projects table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS projects (
+                        project_id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        created_at REAL NOT NULL,
+                        deadline REAL,
+                        status TEXT,
+                        metadata TEXT
+                    )
+                ''')
 
-        # Task history table (for analytics)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS task_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_id TEXT NOT NULL,
-                field TEXT NOT NULL,
-                old_value TEXT,
-                new_value TEXT,
-                changed_at REAL NOT NULL,
-                changed_by TEXT
-            )
-        ''')
+                # Task history table (for analytics)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS task_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        task_id TEXT NOT NULL,
+                        field TEXT NOT NULL,
+                        old_value TEXT,
+                        new_value TEXT,
+                        changed_at REAL NOT NULL,
+                        changed_by TEXT
+                    )
+                ''')
 
-        conn.commit()
-        conn.close()
+                # Create index for better performance
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_task_status_priority
+                    ON tasks(status, priority)
+                ''')
 
-        self.logger.info("Task database initialized")
+                conn.commit()
+
+            self.logger.info("Task database initialized")
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to initialize task database: {e}")
+            raise
 
     def create_task(
         self,
@@ -257,17 +266,19 @@ class TaskManager:
         Returns:
             Task object or None
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM tasks WHERE task_id = ?', (task_id,))
+                row = cursor.fetchone()
 
-        cursor.execute('SELECT * FROM tasks WHERE task_id = ?', (task_id,))
-        row = cursor.fetchone()
-        conn.close()
+            if not row:
+                return None
 
-        if not row:
+            return self._row_to_task(row)
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to get task {task_id}: {e}")
             return None
-
-        return self._row_to_task(row)
 
     def get_tasks(
         self,
@@ -292,42 +303,45 @@ class TaskManager:
         Returns:
             List of tasks
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        query = 'SELECT * FROM tasks WHERE 1=1'
-        params = []
+                query = 'SELECT * FROM tasks WHERE 1=1'
+                params = []
 
-        if status:
-            query += ' AND status = ?'
-            params.append(status.value)
+                if status:
+                    query += ' AND status = ?'
+                    params.append(status.value)
 
-        if priority is not None:
-            query += ' AND priority = ?'
-            params.append(priority.value)
+                if priority is not None:
+                    query += ' AND priority = ?'
+                    params.append(priority.value)
 
-        if project:
-            query += ' AND project = ?'
-            params.append(project)
+                if project:
+                    query += ' AND project = ?'
+                    params.append(project)
 
-        if assigned_to:
-            query += ' AND assigned_to = ?'
-            params.append(assigned_to)
+                if assigned_to:
+                    query += ' AND assigned_to = ?'
+                    params.append(assigned_to)
 
-        query += ' ORDER BY priority DESC, created_at DESC LIMIT ?'
-        params.append(limit)
+                query += ' ORDER BY priority DESC, created_at DESC LIMIT ?'
+                params.append(limit)
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
 
-        tasks = [self._row_to_task(row) for row in rows]
+            tasks = [self._row_to_task(row) for row in rows]
 
-        # Filter by tag if specified (tags are JSON array in DB)
-        if tag:
-            tasks = [t for t in tasks if tag in t.tags]
+            # Filter by tag if specified (tags are JSON array in DB)
+            if tag:
+                tasks = [t for t in tasks if tag in t.tags]
 
-        return tasks
+            return tasks
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to get tasks: {e}")
+            return []
 
     def update_task(
         self,
@@ -390,58 +404,61 @@ class TaskManager:
         Returns:
             True if deleted
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM tasks WHERE task_id = ?', (task_id,))
+                deleted = cursor.rowcount > 0
+                conn.commit()
 
-        cursor.execute('DELETE FROM tasks WHERE task_id = ?', (task_id,))
-        deleted = cursor.rowcount > 0
+            if deleted:
+                self.logger.info(f"Deleted task: {task_id}")
 
-        conn.commit()
-        conn.close()
-
-        if deleted:
-            self.logger.info(f"Deleted task: {task_id}")
-
-        return deleted
+            return deleted
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to delete task {task_id}: {e}")
+            return False
 
     def get_overdue_tasks(self) -> List[Task]:
         """Get all overdue tasks."""
-        now = datetime.now().timestamp()
+        try:
+            now = datetime.now().timestamp()
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM tasks
+                    WHERE due_date < ?
+                    AND status NOT IN (?, ?)
+                    ORDER BY due_date ASC
+                ''', (now, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
+                rows = cursor.fetchall()
 
-        cursor.execute('''
-            SELECT * FROM tasks
-            WHERE due_date < ?
-            AND status NOT IN (?, ?)
-            ORDER BY due_date ASC
-        ''', (now, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
-
-        rows = cursor.fetchall()
-        conn.close()
-
-        return [self._row_to_task(row) for row in rows]
+            return [self._row_to_task(row) for row in rows]
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to get overdue tasks: {e}")
+            return []
 
     def get_upcoming_tasks(self, days: int = 7) -> List[Task]:
         """Get tasks due in the next N days."""
-        now = datetime.now().timestamp()
-        future = (datetime.now() + timedelta(days=days)).timestamp()
+        try:
+            now = datetime.now().timestamp()
+            future = (datetime.now() + timedelta(days=days)).timestamp()
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM tasks
+                    WHERE due_date BETWEEN ? AND ?
+                    AND status NOT IN (?, ?)
+                    ORDER BY due_date ASC
+                ''', (now, future, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
+                rows = cursor.fetchall()
 
-        cursor.execute('''
-            SELECT * FROM tasks
-            WHERE due_date BETWEEN ? AND ?
-            AND status NOT IN (?, ?)
-            ORDER BY due_date ASC
-        ''', (now, future, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
-
-        rows = cursor.fetchall()
-        conn.close()
-
-        return [self._row_to_task(row) for row in rows]
+            return [self._row_to_task(row) for row in rows]
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to get upcoming tasks: {e}")
+            return []
 
     def get_blocked_tasks(self) -> List[Task]:
         """Get tasks that are blocked."""
@@ -486,85 +503,94 @@ class TaskManager:
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get task statistics."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-        # Total tasks
-        cursor.execute('SELECT COUNT(*) FROM tasks')
-        total_tasks = cursor.fetchone()[0]
+                # Total tasks
+                cursor.execute('SELECT COUNT(*) FROM tasks')
+                total_tasks = cursor.fetchone()[0]
 
-        # By status
-        stats_by_status = {}
-        for status in TaskStatus:
-            cursor.execute('SELECT COUNT(*) FROM tasks WHERE status = ?', (status.value,))
-            stats_by_status[status.value] = cursor.fetchone()[0]
+                # By status
+                stats_by_status = {}
+                for status in TaskStatus:
+                    cursor.execute('SELECT COUNT(*) FROM tasks WHERE status = ?', (status.value,))
+                    stats_by_status[status.value] = cursor.fetchone()[0]
 
-        # By priority
-        stats_by_priority = {}
-        for priority in TaskPriority:
-            cursor.execute('SELECT COUNT(*) FROM tasks WHERE priority = ?', (priority.value,))
-            stats_by_priority[priority.name] = cursor.fetchone()[0]
+                # By priority
+                stats_by_priority = {}
+                for priority in TaskPriority:
+                    cursor.execute('SELECT COUNT(*) FROM tasks WHERE priority = ?', (priority.value,))
+                    stats_by_priority[priority.name] = cursor.fetchone()[0]
 
-        # Overdue count
-        now = datetime.now().timestamp()
-        cursor.execute('''
-            SELECT COUNT(*) FROM tasks
-            WHERE due_date < ?
-            AND status NOT IN (?, ?)
-        ''', (now, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
-        overdue_count = cursor.fetchone()[0]
+                # Overdue count
+                now = datetime.now().timestamp()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM tasks
+                    WHERE due_date < ?
+                    AND status NOT IN (?, ?)
+                ''', (now, TaskStatus.COMPLETED.value, TaskStatus.CANCELLED.value))
+                overdue_count = cursor.fetchone()[0]
 
-        # Completion rate
-        cursor.execute('SELECT COUNT(*) FROM tasks WHERE status = ?', (TaskStatus.COMPLETED.value,))
-        completed_count = cursor.fetchone()[0]
-        completion_rate = (completed_count / total_tasks * 100) if total_tasks > 0 else 0
+                # Completion rate
+                cursor.execute('SELECT COUNT(*) FROM tasks WHERE status = ?', (TaskStatus.COMPLETED.value,))
+                completed_count = cursor.fetchone()[0]
+                completion_rate = (completed_count / total_tasks * 100) if total_tasks > 0 else 0
 
-        conn.close()
-
-        return {
-            'total_tasks': total_tasks,
-            'by_status': stats_by_status,
-            'by_priority': stats_by_priority,
-            'overdue_count': overdue_count,
-            'completion_rate': completion_rate
-        }
+            return {
+                'total_tasks': total_tasks,
+                'by_status': stats_by_status,
+                'by_priority': stats_by_priority,
+                'overdue_count': overdue_count,
+                'completion_rate': completion_rate
+            }
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to get statistics: {e}")
+            return {
+                'total_tasks': 0,
+                'by_status': {},
+                'by_priority': {},
+                'overdue_count': 0,
+                'completion_rate': 0
+            }
 
     def _save_task(self, task: Task):
         """Save task to database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            INSERT OR REPLACE INTO tasks VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
-        ''', (
-            task.task_id,
-            task.title,
-            task.description,
-            task.status.value,
-            task.priority.value,
-            task.created_at,
-            task.due_date,
-            task.scheduled_start,
-            task.completed_at,
-            task.progress,
-            task.estimated_hours,
-            task.actual_hours,
-            json.dumps(task.tags),
-            task.category,
-            task.project,
-            json.dumps(task.dependencies),
-            json.dumps(task.blocked_by),
-            task.assigned_to,
-            task.created_by,
-            json.dumps(task.notes),
-            json.dumps(task.subtasks),
-            json.dumps(task.metadata)
-        ))
-
-        conn.commit()
-        conn.close()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO tasks VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    )
+                ''', (
+                    task.task_id,
+                    task.title,
+                    task.description,
+                    task.status.value,
+                    task.priority.value,
+                    task.created_at,
+                    task.due_date,
+                    task.scheduled_start,
+                    task.completed_at,
+                    task.progress,
+                    task.estimated_hours,
+                    task.actual_hours,
+                    json.dumps(task.tags),
+                    task.category,
+                    task.project,
+                    json.dumps(task.dependencies),
+                    json.dumps(task.blocked_by),
+                    task.assigned_to,
+                    task.created_by,
+                    json.dumps(task.notes),
+                    json.dumps(task.subtasks),
+                    json.dumps(task.metadata)
+                ))
+                conn.commit()
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to save task {task.task_id}: {e}")
+            raise
 
     def _row_to_task(self, row) -> Task:
         """Convert database row to Task object."""
@@ -595,16 +621,17 @@ class TaskManager:
 
     def _record_history(self, task_id: str, field: str, old_value: str, new_value: str):
         """Record task change in history."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            INSERT INTO task_history (task_id, field, old_value, new_value, changed_at, changed_by)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (task_id, field, old_value, new_value, datetime.now().timestamp(), 'Delta'))
-
-        conn.commit()
-        conn.close()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO task_history (task_id, field, old_value, new_value, changed_at, changed_by)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (task_id, field, old_value, new_value, datetime.now().timestamp(), 'Delta'))
+                conn.commit()
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to record history for task {task_id}: {e}")
+            # Don't raise - history recording is not critical
 
 
 def create_task_manager(db_path: Optional[Path] = None) -> TaskManager:
