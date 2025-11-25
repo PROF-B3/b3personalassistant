@@ -184,8 +184,12 @@ class ConfigManager:
                     json_config = json.load(f)
                 self._update_from_dict(json_config)
                 logger.info(f"Loaded configuration from {self.config_file}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON in config file {self.config_file}: {e}")
+            except (OSError, IOError) as e:
+                logger.warning(f"Failed to read config file {self.config_file}: {e}")
             except Exception as e:
-                logger.warning(f"Failed to load config file: {e}")
+                logger.exception(f"Unexpected error loading config file: {e}")
         
         # 3. Load from environment variables
         self._load_from_env()
@@ -323,8 +327,12 @@ class ConfigManager:
             with open(config_path, 'w') as f:
                 json.dump(config_dict, f, indent=2, default=str)
             logger.info(f"Configuration saved to {config_path}")
+        except TypeError as e:
+            logger.error(f"Configuration contains non-serializable data: {e}")
+        except (OSError, IOError) as e:
+            logger.error(f"Failed to write configuration file: {e}")
         except Exception as e:
-            logger.error(f"Failed to save configuration: {e}")
+            logger.exception(f"Unexpected error saving configuration: {e}")
     
     def _config_to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""

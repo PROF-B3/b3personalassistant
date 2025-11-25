@@ -120,31 +120,41 @@ class Orchestrator:
         """
         try:
             self._update_gui_status("Processing request...")
-            
+
             # Analyze intent and determine required agents
             intent = self._analyze_intent(user_input)
             required_agents = self._route_request(intent, user_input)
-            
+
             self._update_gui_status(f"Routing to agents: {', '.join(required_agents)}")
-            
+
             # Process with single or multiple agents
             if len(required_agents) == 1:
                 result = self._single_agent_process(required_agents[0], user_input, context)
             else:
                 result = self._multi_agent_process(required_agents, user_input, context)
-            
+
             # Store conversation
             self.conversation_manager.add_message("user", user_input)
             self.conversation_manager.add_message("assistant", result)
-            
+
             self._update_gui_status("Request completed")
             return result
-            
-        except Exception as e:
-            error_msg = f"Orchestrator error: {e}"
+
+        except KeyError as e:
+            error_msg = f"Agent not found: {e}"
             self.logger.error(error_msg)
+            self._update_gui_status("Configuration error")
+            return f"I encountered a configuration issue. Please check that all agents are properly initialized."
+        except AttributeError as e:
+            error_msg = f"Agent method missing: {e}"
+            self.logger.error(error_msg)
+            self._update_gui_status("Agent error")
+            return f"An agent is not responding correctly. Please restart the application."
+        except Exception as e:
+            error_msg = f"Unexpected orchestrator error: {type(e).__name__}: {e}"
+            self.logger.exception(error_msg)  # Log full traceback
             self._update_gui_status("Error occurred")
-            return error_msg
+            return f"I'm sorry, I encountered an unexpected error while processing your request. The error has been logged."
 
     def _analyze_intent(self, user_input: str) -> Dict[str, Any]:
         """
@@ -294,13 +304,18 @@ class Orchestrator:
         """
         agent = self.agents.get(agent_name)
         if not agent:
-            return f"Error: Agent {agent_name} not found"
-        
+            error_msg = f"Agent {agent_name} not found"
+            self.logger.error(error_msg)
+            raise KeyError(error_msg)
+
         try:
             return agent.act(user_input, context)
+        except AttributeError as e:
+            self.logger.error(f"Agent {agent_name} missing 'act' method: {e}")
+            raise
         except Exception as e:
-            self.logger.error(f"Agent {agent_name} error: {e}")
-            return f"Error processing with {agent_name}: {e}"
+            self.logger.exception(f"Agent {agent_name} failed to process request: {e}")
+            raise  # Re-raise to be handled by process_request
 
     def _multi_agent_process(self, agent_names: List[str], user_input: str, context: Optional[Dict] = None) -> str:
         """
@@ -323,34 +338,41 @@ class Orchestrator:
             >>> print(result)
             "Alpha coordinated with Beta to research AI topics..."
         """
+        if not agent_names:
+            raise ValueError("No agents specified for multi-agent processing")
+
         results = []
-        
+
+        # Start with primary agent (first in list)
+        primary_agent = agent_names[0]
         try:
-            # Start with primary agent (first in list)
-            primary_agent = agent_names[0]
             primary_result = self._single_agent_process(primary_agent, user_input, context)
             results.append(f"{primary_agent.title()}: {primary_result}")
-            
-            # Coordinate with other agents
-            for agent_name in agent_names[1:]:
-                if agent_name == 'alpha':
-                    # Alpha coordinates, doesn't add to results
-                    continue
-                
+        except Exception as e:
+            self.logger.exception(f"Primary agent {primary_agent} failed: {e}")
+            raise
+
+        # Coordinate with other agents
+        for agent_name in agent_names[1:]:
+            if agent_name == 'alpha':
+                # Alpha coordinates, doesn't add to results
+                continue
+
+            try:
                 # Send context from primary agent to supporting agents
                 coordination_message = f"Supporting request: {user_input}. Primary result: {primary_result}"
                 agent_result = self._single_agent_process(agent_name, coordination_message, context)
                 results.append(f"{agent_name.title()}: {agent_result}")
-            
-            # Aggregate results
-            if len(results) == 1:
-                return results[0]
-            else:
-                return f"Coordinated response:\n" + "\n".join(results)
-                
-        except Exception as e:
-            self.logger.error(f"Multi-agent process error: {e}")
-            return f"Error in multi-agent coordination: {e}"
+            except Exception as e:
+                # Log but continue with other agents if one fails
+                self.logger.error(f"Supporting agent {agent_name} failed, continuing: {e}")
+                results.append(f"{agent_name.title()}: [Error: Agent unavailable]")
+
+        # Aggregate results
+        if len(results) == 1:
+            return results[0]
+        else:
+            return f"Coordinated response:\n" + "\n".join(results)
 
     def agent_communicate(self, from_agent: str, to_agent: str, message: str, context: Optional[Dict] = None) -> Optional[str]:
         """
@@ -374,16 +396,20 @@ class Orchestrator:
             >>> print(response)
             "Beta: Researching quantum computing..."
         """
+        target_agent = self.agents.get(to_agent)
+        if not target_agent:
+            error_msg = f"Target agent {to_agent} not found"
+            self.logger.error(f"Communication from {from_agent} failed: {error_msg}")
+            return f"Error: Agent {to_agent} is not available"
+
         try:
-            target_agent = self.agents.get(to_agent)
-            if not target_agent:
-                return f"Error: Agent {to_agent} not found"
-            
             return target_agent.communicate(message, context)
-            
+        except AttributeError as e:
+            self.logger.error(f"Agent {to_agent} missing 'communicate' method: {e}")
+            return f"Error: Agent {to_agent} cannot receive messages"
         except Exception as e:
-            self.logger.error(f"Agent communication error: {e}")
-            return f"Communication error: {e}"
+            self.logger.exception(f"Communication from {from_agent} to {to_agent} failed: {e}")
+            return f"Error: Failed to deliver message to {to_agent}"
 
     def get_agent_status(self) -> Dict[str, Any]:
         """

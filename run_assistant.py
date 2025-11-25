@@ -69,8 +69,12 @@ def load_user_profile() -> Optional[Dict[str, Any]]:
         try:
             with open(profile_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in profile file: {e}")
+        except (OSError, IOError) as e:
+            logger.error(f"Error reading profile file: {e}")
         except Exception as e:
-            logger.error(f"Error loading profile: {e}")
+            logger.exception(f"Unexpected error loading profile: {e}")
     return None
 
 def save_user_profile(profile: Dict[str, Any]) -> bool:
@@ -94,8 +98,14 @@ def save_user_profile(profile: Dict[str, Any]) -> bool:
         with open(profile_path, 'w', encoding='utf-8') as f:
             json.dump(profile, f, indent=2, ensure_ascii=False)
         return True
+    except TypeError as e:
+        logger.error(f"Profile contains non-serializable data: {e}")
+        return False
+    except (OSError, IOError) as e:
+        logger.error(f"Error writing profile file: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Error saving profile: {e}")
+        logger.exception(f"Unexpected error saving profile: {e}")
         return False
 
 def setup_user_profile() -> Dict[str, Any]:
