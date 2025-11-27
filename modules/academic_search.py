@@ -210,7 +210,7 @@ class AcademicSearchEngine:
                 if published is not None:
                     try:
                         year = int(published.text[:4])
-                    except:
+                    except (ValueError, TypeError, AttributeError):
                         pass
 
                 # Abstract

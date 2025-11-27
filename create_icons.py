@@ -42,12 +42,12 @@ def create_gradient_icon(size, output_path):
         font_size = size // 2
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-        except:
+        except (OSError, IOError):
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-            except:
+            except (OSError, IOError):
                 font = ImageFont.load_default()
-    except:
+    except (OSError, IOError):
         font = ImageFont.load_default()
 
     # Draw text

@@ -835,7 +835,7 @@ class NaturalLanguageTaskParser:
                 try:
                     due_date = date_func(match).isoformat()
                     break
-                except:
+                except (ValueError, TypeError, AttributeError):
                     continue
         
         # Extract tags (words starting with #)
