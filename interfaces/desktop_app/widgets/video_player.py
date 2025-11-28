@@ -5,6 +5,7 @@ Provides video playback with timeline navigation and editing controls.
 """
 
 import sys
+import logging
 from pathlib import Path
 from typing import Optional, List, Tuple
 from PyQt6.QtWidgets import (
@@ -15,6 +16,8 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QTimer
 from PyQt6.QtGui import QPainter, QPen, QColor, QMouseEvent
+
+logger = logging.getLogger(__name__)
 
 
 class TimelineWidget(QWidget):
@@ -309,7 +312,7 @@ class VideoPlayer(QWidget):
             return True
 
         except Exception as e:
-            print(f"Error loading video: {e}")
+            logger.error(f"Error loading video: {e}")
             return False
 
     def play(self):

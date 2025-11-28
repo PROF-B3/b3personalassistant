@@ -5,6 +5,7 @@ Video editing workspace with timeline, theme application, and export.
 """
 
 import sys
+import logging
 from pathlib import Path
 from typing import Optional, List, Tuple
 from PyQt6.QtWidgets import (
@@ -19,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from interfaces.desktop_app.widgets.video_player import VideoPlayer
 from modules.video_processing import FUTURISTIC_THEMES, VideoProcessor, ProcessingConfig
+
+logger = logging.getLogger(__name__)
 
 
 class VideoPanel(QWidget):
@@ -49,7 +52,7 @@ class VideoPanel(QWidget):
         try:
             self.video_processor = VideoProcessor()
         except Exception as e:
-            print(f"Video processor initialization: {e}")
+            logger.warning(f"Video processor initialization failed: {e}")
 
         self._create_ui()
 

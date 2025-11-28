@@ -5,6 +5,7 @@ First-run wizard to set up the application.
 """
 
 import sys
+import logging
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QDialog, QWizard, QWizardPage, QVBoxLayout, QHBoxLayout,
@@ -19,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from modules.onboarding import OnboardingManager, UserPreferences
 from modules.sample_data import generate_sample_data_for_onboarding
+
+logger = logging.getLogger(__name__)
 
 
 class WelcomePage(QWizardPage):
@@ -293,9 +296,9 @@ class OnboardingWizard(QWizard):
             if self.workspace_page.sample_data_check.isChecked():
                 try:
                     sample_files = generate_sample_data_for_onboarding()
-                    print(f"Generated sample data: {sample_files}")
+                    logger.info(f"Generated sample data: {sample_files}")
                 except Exception as e:
-                    print(f"Failed to generate sample data: {e}")
+                    logger.error(f"Failed to generate sample data: {e}")
 
             # Mark first run complete
             self.onboarding_manager.mark_first_run_complete()
